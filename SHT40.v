@@ -35,6 +35,7 @@ module i2c_sht40
     inital begin
         SHT_State = SHT_Initial;
     end
+
     always @(posedge clk) begin
         case (SHT_State)
             SHT_Initial: begin
@@ -95,3 +96,6 @@ endmodule
 //if not then have a reset/interupt to tell the master to restart?
 //have different registers for temperature and humidity
 //depending on the value in the output received value 
+
+// next things to do are start testing code and modifying the code to work properly
+// start with the CRC code because that sounds pretty easy to check if it works since there is an expected value 
