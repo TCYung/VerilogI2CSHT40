@@ -104,7 +104,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                             Master_State <= Master_Receive;
                             
                         end
-			
                     end		
                 end
             end
@@ -131,9 +130,8 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                             Master_State <= Master_End;
                             Total_Receive_Counter <= 4'd0;
                         end
-		            end
-	            end
-                
+                    end
+                end 
             end
 
             Master_End: begin
@@ -142,7 +140,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     Master_State <= Master_Processor; //unsure if i would need to go back to the processor state or if it should keep looping until there is a signal from the processor to stop it 
                 end
             end
-
         endcase
     end
 endmodule
