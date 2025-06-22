@@ -13,6 +13,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
 
     );
 
+    
     parameter Master_Processor = 3'b000;
     parameter Master_Start = 3'b001;
     parameter Master_Transmit = 3'b010;
