@@ -13,7 +13,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
 
     );
 
-    
     parameter Master_Processor = 3'b000;
     parameter Master_Start = 3'b001;
     parameter Master_Transmit = 3'b010;
@@ -106,9 +105,9 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                             
                         end
 			
-		            end		
+                    end		
                 end
-	        end
+            end
             
             Master_Receive: begin //some kind of counter that goes to 7 and then gives an ack
                 if (Scl_Data == 1 & Receive_Counter < 7) begin //if the SCL line is high the peripheral can transmit data
