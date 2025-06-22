@@ -20,7 +20,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     //parameter Master_Ack = 3'b100; //might need this later but it think the acks can just be an if else statement
     //error checking and what to do if no ack can be coded in later
     parameter Master_End = 3'b100;
-
     
     wire [6:0] Master_Address;
     reg [4:0] Sda_Counter;
