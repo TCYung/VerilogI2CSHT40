@@ -119,7 +119,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     Scl_Edge_Checker <= Scl_Data;
                     Local_Bytes_Received <= Local_Bytes_Received + 4'd1; 
 
-                    if (Scl_Edge_Checker) begin //after the line goes high and goes low again
+                    if (Scl_Edge_Checker & ~Scl_Data) begin //falling edge detector, last cycle changed from 1 to 0
                         Master_Data <= 1'bZ;    //the line can be released
                         Receive_Counter <= 3'd0; 
                         Scl_Edge_Checker <= 1'b0; //set edge checker low because high means that an edge has occurred (not 100% sure this works so this might be a point to check)

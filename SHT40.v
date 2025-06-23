@@ -49,7 +49,7 @@ module i2c_sht40
 
                 integer i;
 
-                for (i = 0; i<8; i=i+1) begin
+                for (i = 0; i<7; i=i+1) begin
                     if (Temp_CRC[7] == 1'b0) begin
                         Temp_CRC <= {Temp_CRC[6:0], 1'b0};
                     end
@@ -62,7 +62,7 @@ module i2c_sht40
             SHT_2: begin
                 Temp_CRC <= Temp_CRC ^ SHT_Input2;
 
-                for (i = 0; i<8; i=i+1) begin
+                for (i = 0; i<7; i=i+1) begin
                     if (Temp_CRC[7] == 1'b0) begin
                         Temp_CRC <= {Temp_CRC[6:0], 1'b0};
                     end
