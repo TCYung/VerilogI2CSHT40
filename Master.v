@@ -7,8 +7,9 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     input Scl_Data,
     input i2c_writes, //from peripheral module (how many writes are needed
     input [3:0] SHT_Reads;
+    input CRC_Error;
     output [3:0] Bytes_Received
-    output [6:0] Data_Received;
+    output [7:0] Data_Received;
     output [3:0] Output_Received_Counter;
 
     );
@@ -28,7 +29,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     reg [2:0] Master_State;
     reg Master_Data;
     reg [2:0] Receive_Counter;
-    reg [6:0] Received_Data;
+    reg [7:0] Received_Data;
     reg Scl_Edge_Checker;
     reg [3:0] Local_Bytes_Received;
     reg [3:0] Total_Receive_Counter;
@@ -109,7 +110,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             end
             
             Master_Receive: begin //some kind of counter that goes to 7 and then gives an ack
-                if (Scl_Data == 1 & Receive_Counter < 7) begin //if the SCL line is high the peripheral can transmit data
+                if (Scl_Data == 1 & Receive_Counter < 3'd7) begin //if the SCL line is high the peripheral can transmit data
 		            Receive_Counter <= Receive_Counter + 3'd1; //count the number of times data has been transferred
 		            Received_Data[Receive_Counter] <= Master_Data; //store the transmitted data with the index that lines up with the counter value
 	            end
@@ -132,6 +133,16 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                         end
                     end
                 end 
+
+                if (CRC_Error == 1'b1) begin //not 100% sure you would be able to stop right away need to check if i need to wait for a timing
+                    Receive_Counter <= 3'd0; //its an interupt so everything should be reset
+                    Scl_Edge_Checker <= 1'b0;
+                    Total_Receive_Counter <= 4'd0;
+                    CRC_Error <= 1'b0;
+                    Master_State <= Master_End;
+                    Scl_State <= Scl_Stop;
+                end
+
             end
 
             Master_End: begin

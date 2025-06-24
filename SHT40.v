@@ -2,8 +2,12 @@ module i2c_sht40
     (
         input clk,
         input [3:0] Output_Received_Counter;
-        input [6:0] Data_Received;
+        input [7:0] Data_Received; //need to find a way to check if 
         output [3:0] SHT_Reads;
+        output CRC_Error;
+        output [15:0] Temperature;
+        output [15:0] Humidity;
+        output Temp_Ready, RH_Ready;
     );
 
     parameter SHT_Initial = 3'b000;
@@ -34,17 +38,28 @@ module i2c_sht40
 
     inital begin
         SHT_State = SHT_Initial;
+        CRC_Error = 1'b0;
     end
 
     always @(posedge clk) begin
         case (SHT_State)
             SHT_Initial: begin
-                if (Output_Received_Counter == 4'd1) begin
+                if (Output_Received_Counter == 4'd1 | 4'd4) begin 
+                    Temp_Ready <= 1'b0;
+                    RH_Ready <= 1'b0;
                     SHT_State <= SHT_1;
                 end
             end
             
             SHT_1: begin
+                //assign first byte of temp if 4'd1 or first byte of RH if 4'd4
+                if (Output_Received_Counter == 4'd1) begin
+                    Temperature[15:8] <= Data_Received;
+                end
+                else begin
+                    Humidity[15:8] <= Data_Received;
+                end
+                
                 Temp_CRC <= 8'b11111111 ^ SHT_Input1; //need to figure out a way to only run this once, some sort of if statement + counter?
 
                 integer i;
@@ -57,9 +72,20 @@ module i2c_sht40
                         Temp_CRC <= {Temp_CRC[6:0], 1'b0} ^ Poly;	
                     end
                 end
+
+                if (Output_Received_Counter == 4'd2 | 4'd5)
+                    SHT_State <= SHT_2; 
             end
 
             SHT_2: begin
+                //assign second byte of temp if 4'd1 or second byte of RH if 4'd4
+                if (Output_Received_Counter == 4'd2) begin
+                    Temperature[7:0] <= Data_Received;
+                end
+                else begin
+                    Humidity[7:0] <= Data_Received;
+                end
+
                 Temp_CRC <= Temp_CRC ^ SHT_Input2;
 
                 for (i = 0; i<7; i=i+1) begin
@@ -70,32 +96,30 @@ module i2c_sht40
                         Temp_CRC <= {Temp_CRC[6:0], 1'b0} ^ Poly;	
                     end
                 end
+
+                if (Output_Received_Counter == 4'd3 | 4'd6)
+                    SHT_State <= SHT_3; 
             end
 
-            // SHT_3: begin //below code needs to be fleshed out 
-            //     if (Temp_CRC == SHT_CRC) begin
-            //         if (# of reads = 3 then continue on) begin
-            //             //continue on code
-            //         end
+            SHT_3: begin //the master module uses the SHT_Reads so once it reaches 6 it will go to end state 
+                if (Temp_CRC == SHT_CRC) begin
+                    if (Output_Received_Counter == 4'd3) begin
+                        Temp_Ready <= 1'b1;
+                        SHT_State <= SHT_Initial;
+                    end
+                end
 
-            //         else begin
-            //             //go to stop case
-            //         end
-            //     end
-
-            //     else begin
-            //         //go to stop state
-            //         //output an error bit	
-            //     end
-            // end
+                else begin //error stops the transmission and is supposed to restart it
+                    CRC_Error <= 1'b1;
+                    SHT_State <= SHT_Initial;
+                end
+            end
         endcase
     end
 endmodule
 
-//master data gets sent here and then it is checked for accuracy, if it is accurate output something to the processor to tell it to read
-//if not then have a reset/interupt to tell the master to restart?
-//have different registers for temperature and humidity
-//depending on the value in the output received value 
+//main problem now is that the checksum math will run multiple times per cycle already wrote a note above that this can be a problem
+//also need to check if the register value will change during the execution of this code, it should provide enough time to grab the code because the master module should be ack'ing but double check
 
 // next things to do are start testing code and modifying the code to work properly
 // start with the CRC code because that sounds pretty easy to check if it works since there is an expected value 
