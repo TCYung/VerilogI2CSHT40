@@ -1,13 +1,12 @@
 module i2c_sht40
     (
         input clk,
-        input [3:0] Output_Received_Counter;
-        input [7:0] Data_Received; //need to find a way to check if 
-        output [3:0] SHT_Reads;
-        output CRC_Error;
-        output [15:0] Temperature;
-        output [15:0] Humidity;
-        output Temp_Ready, RH_Ready;
+        //input [3:0] Output_Received_Counter,
+        input [7:0] Data_Received, 
+        output [3:0] SHT_Reads,
+        output [15:0] Temperature_Output,
+        output [15:0] Humidity_Output
+        //output Temp_Ready, RH_Ready
     );
 
     parameter SHT_Initial = 3'b000;
@@ -23,10 +22,20 @@ module i2c_sht40
     reg [7:0] SHT_Input1; //first input byte
     reg [7:0] SHT_Input2; //second byte
     reg [7:0] SHT_CRC; //crc (third byte)
-
-    reg [5:0] Poly;
+    
+    wire [5:0] Poly;
     reg [7:0] Temp_CRC; 
     reg [2:0] SHT_State;
+
+    reg CRC_Error;
+    
+    reg SHT1_Counter;
+    reg SHT2_Counter;
+    
+    reg Temp_Ready, RH_Ready;
+    reg [15:0] Temperature, Humidity;
+
+    reg [3:0] CRC_Counter;
 
     assign Sht_Writes = 1'b1; //there is 1 write after the address
     assign Sht_Reads = 3'd6; //there are 6 reads before master needs to nack and stop the transmission
@@ -35,16 +44,38 @@ module i2c_sht40
     assign Poly = 6'b110001; //0x31 in binary used to xor the temp crc
 
     assign SHT_Reads = 4'd6;
+    
+    assign Temperature_Output = Temperature;
+    assign Humidity_Output = Humidity;
+    
+    integer i;
 
-    inital begin
+    //testing variable (this should eventually come from the master module either after combining or as an input)
+    reg [3:0] Output_Received_Counter;
+    
+    initial begin
         SHT_State = SHT_Initial;
         CRC_Error = 1'b0;
+        SHT1_Counter = 1'b0;
+        SHT2_Counter = 1'b0;
+        CRC_Counter = 4'd0;
+        
+        //testing variables
+        // Output_Received_Counter = 4'd1;
+        // SHT_Input1 = 8'b10111110;
+        // SHT_Input2 = 8'b11101111;
+        
     end
 
     always @(posedge clk) begin
+
+        //testing code
+        // if (Temp_CRC == 4'h0c)
+        //     Output_Received_Counter <= 4'd2;
+
         case (SHT_State)
             SHT_Initial: begin
-                if (Output_Received_Counter == 4'd1 | 4'd4) begin 
+                if (Output_Received_Counter == 4'd1 || Output_Received_Counter == 4'd4) begin 
                     Temp_Ready <= 1'b0;
                     RH_Ready <= 1'b0;
                     SHT_State <= SHT_1;
@@ -60,11 +91,13 @@ module i2c_sht40
                     Humidity[15:8] <= Data_Received;
                 end
                 
-                Temp_CRC <= 8'b11111111 ^ SHT_Input1; //need to figure out a way to only run this once, some sort of if statement + counter?
-
-                integer i;
-
-                for (i = 0; i<7; i=i+1) begin
+                if (SHT1_Counter == 1'b0) begin //runs code only once
+                    Temp_CRC <= (8'b11111111 ^ SHT_Input1); 
+                    SHT1_Counter <= 1'b1;
+                end  
+                
+                if (CRC_Counter < 4'd8 && SHT1_Counter == 1'b1) begin
+                    CRC_Counter <= CRC_Counter + 4'd1;
                     if (Temp_CRC[7] == 1'b0) begin
                         Temp_CRC <= {Temp_CRC[6:0], 1'b0};
                     end
@@ -72,9 +105,13 @@ module i2c_sht40
                         Temp_CRC <= {Temp_CRC[6:0], 1'b0} ^ Poly;	
                     end
                 end
-
-                if (Output_Received_Counter == 4'd2 | 4'd5)
+                    
+                if (Output_Received_Counter == 4'd2 || Output_Received_Counter == 4'd5) begin
+                    SHT1_Counter <= 1'b0;
                     SHT_State <= SHT_2; 
+                    CRC_Counter <= 4'd0;
+                end
+                    
             end
 
             SHT_2: begin
@@ -86,9 +123,13 @@ module i2c_sht40
                     Humidity[7:0] <= Data_Received;
                 end
 
-                Temp_CRC <= Temp_CRC ^ SHT_Input2;
+                if (SHT2_Counter == 1'b0) begin //runs code only once
+                    Temp_CRC <= Temp_CRC ^ SHT_Input2;
+                    SHT2_Counter <= 1'b1;
+                end
 
-                for (i = 0; i<7; i=i+1) begin
+                if (CRC_Counter < 4'd8 && SHT2_Counter == 1'b1) begin
+                    CRC_Counter <= CRC_Counter + 4'd1;
                     if (Temp_CRC[7] == 1'b0) begin
                         Temp_CRC <= {Temp_CRC[6:0], 1'b0};
                     end
@@ -97,8 +138,11 @@ module i2c_sht40
                     end
                 end
 
-                if (Output_Received_Counter == 4'd3 | 4'd6)
+                if (Output_Received_Counter == 4'd3 || Output_Received_Counter == 4'd6) begin
+                    SHT2_Counter <= 1'b0;
                     SHT_State <= SHT_3; 
+                    CRC_Counter <= 4'd0;
+                end              
             end
 
             SHT_3: begin //the master module uses the SHT_Reads so once it reaches 6 it will go to end state 
@@ -118,8 +162,6 @@ module i2c_sht40
     end
 endmodule
 
-//main problem now is that the checksum math will run multiple times per cycle already wrote a note above that this can be a problem
 //also need to check if the register value will change during the execution of this code, it should provide enough time to grab the code because the master module should be ack'ing but double check
 
-// next things to do are start testing code and modifying the code to work properly
-// start with the CRC code because that sounds pretty easy to check if it works since there is an expected value 
+// the first 2 CRC calculators should work after testing in vivado, havent checked if the last checking module works properly

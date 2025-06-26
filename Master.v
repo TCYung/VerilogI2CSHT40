@@ -6,11 +6,11 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     input r_or_w, 
     input Scl_Data,
     input i2c_writes, //from peripheral module (how many writes are needed
-    input [3:0] SHT_Reads;
-    input CRC_Error;
-    output [3:0] Bytes_Received
-    output [7:0] Data_Received;
-    output [3:0] Output_Received_Counter;
+    input [3:0] SHT_Reads,
+    input CRC_Error,
+    output [3:0] Bytes_Received,
+    output [7:0] Data_Received,
+    output [3:0] Output_Received_Counter
 
     );
 
