@@ -3,14 +3,18 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     inout Sda_Data,
     input Processor_Ready,
     input [6:0] Peripheral_Address,
+    input [7:0] Command_Data_Frames;
+
     input r_or_w, 
     input Scl_Data,
-    input i2c_writes, //from peripheral module (how many writes are needed
+    input i2c_writes, //from peripheral module (how many writes are needed)
     input [3:0] SHT_Reads,
     input CRC_Error,
     output [3:0] Bytes_Received,
     output [7:0] Data_Received,
     output [3:0] Output_Received_Counter
+
+    output Frames_Read; 
 
     );
 
@@ -18,11 +22,13 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     parameter Master_Start = 3'b001;
     parameter Master_Transmit = 3'b010;
     parameter Master_Receive = 3'b011;
-    //parameter Master_Ack = 3'b100; //might need this later but it think the acks can just be an if else statement
+    parameter Master_Write = 3'b100; //might need this later but it think the acks can just be an if else statement
     //error checking and what to do if no ack can be coded in later
     parameter Master_End = 3'b100;
     
-    wire [6:0] Master_Address;
+    wire [6:0] Master_Address; //tied to peripheral_address
+    wire [7:0] Master_Frames; //tied to command_data_frames
+
     reg [4:0] Sda_Counter;
     reg [2:0] master_writes;
     reg [2:0] Transmit_Counter;
@@ -33,22 +39,24 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     reg Scl_Edge_Checker;
     reg [3:0] Local_Bytes_Received;
     reg [3:0] Total_Receive_Counter;
+    reg Master_Frames_Read;
 
     initial begin
         Master_State = Master_Processor;
         Sda_Counter = 5'd0;
-        Transmit_Counter = 3'd7;
+        Transmit_Counter = 3'd7; //start at 7-1 = 6 to account for the r/w bit
         Local_Bytes_Received = 4'd0;
         Total_Receive_Counter = 4'd0;
     end
 
-    assign 
     assign Master_Address = Peripheral_Address;
     //assign master_writes = i2c_writes;
     assign Sda_Data = Master_Data;
     assign Bytes_Received = Local_Bytes_Received;
     assign Data_Received = Received_Data;
     assign Output_Received_Counter = Total_Receive_Counter;
+    
+    assign Frames_Read = Master_Frames;
 
     always @(posedge clk) begin
         case(Master_State)
@@ -78,49 +86,70 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 end
             end
             
-            
             Master_Transmit: begin 
                 if (Sda_Counter < 5'd20) //capping the counter in case it goes out of index and resets back to 0 
                     Sda_Counter <= Sda_Counter + 1'b1;
-                if  (Sda_Counter == 5'd20 & Scl_Data == 0) begin //at least 20 clock cycles have to pass along with scl being 0
+
+                if (Sda_Counter == 5'd20 && Scl_Data == 0) begin //at least 20 clock cycles have to pass along with scl being 0
                     Sda_Counter <= 5'd0;
-                    Transmit_Counter <= Transmit_Counter - 3'd1; //starts at 7 which is all the data bits 
-                    master_writes <= master_writes - 3'd1; //total number of writes from processor decreases per transmission
-                    if (Master_Address[Transmit_Counter] == 1 & Transmit_Counter !== 0) begin //read the address to write to and set sda to be the corresponding bit 
+                    Transmit_Counter <= Transmit_Counter - 3'd1; 
+                    
+                    //there is a -1 in the counter because i need to be able to access to 0th bit but dont want to have to worry about negative #s
+                    if (Master_Address[Transmit_Counter - 1] == 1 && Transmit_Counter !== 0) begin //read the address to write to and set sda to be the corresponding bit 
                         Master_Data <= 1'bZ;
                     end
-                    else if (Master_Address[Transmit_Counter] == 0 & Transmit_Counter !== 0) begin
+                    else if (Master_Address[Transmit_Counter - 1] == 0 && Transmit_Counter !== 0) begin
                         Master_Data <= 1'b0;
                     end
-		
-                    else if (Transmit_Counter == 0) begin //after the address is given check if its a read or write command
-                        if (r_or_w == 1) begin
+                    
+                    if (Transmit_Counter == 0) begin //after the address is given check if its a read or write command
+                        if (r_or_w == 1'b0) begin //write = 1, read = 0
                             Master_Data <= 1'b0;
-                            Transmit_Counter <= 3'd7; //reset the counter for next time the state is master_transmit
+                            Transmit_Counter <= 3'd8; //since this condition goes to the write state that doesnt have a r/w bit it needs = 8-1 = 7
+                            //master_writes <= master_writes - 3'd1; //total number of writes from processor decreases per transmission (move to write case statement)
                             //go to write/ack state
                         end
                         else begin
                             Master_Data <= 1'bZ;
-                            Transmit_Counter <= 3'd7;
-                            Master_State <= Master_Receive;
-                            
+                            Transmit_Counter <= 3'd7; //receive loops back to the transmit block which means there will be a r/w bit so = 7-1 = 6
+                            //master_writes <= master_writes - 3'd1; //move to write case statement
+                            Master_State <= Master_Receive; 
                         end
                     end		
                 end
             end
             
+            //when it gets transferred to this state scl is low before the write pulse starts
+            //after scl edge checker sees fall from 1 to 0 release and monitor line
+            //if the peripheral doesnt ack there needs to be some error/restart function
+            //if it acks properly we can swap to the transmit state again
+
+            // notes 6/29
+            //need to stay in this block if there are multiple writes ie. there are data frames that need to be written after the command frame 
+            //need to be able to read from the processor what needs to be written
+            //tell the processor that the data has been written and is ready to load in the next write data
+            //loops back to the transmit case after all the writes are done 
+            //make sure to move the master_writes stuff to the case below
+
+            Master_Write: begin
+                Scl_Edge_Checker <= Scl_Data;
+                if (Scl_Edge_Checker && ~Scl_Data) begin
+                    Master_Data <= 1'bZ; //release the sda line after the scl has gone from 1 to 0 so that the peripheral can ack
+                end
+            end
+
             Master_Receive: begin //some kind of counter that goes to 7 and then gives an ack
-                if (Scl_Data == 1 & Receive_Counter < 3'd7) begin //if the SCL line is high the peripheral can transmit data
+                if (Scl_Data == 1 && Receive_Counter < 3'd7) begin //if the SCL line is high the peripheral can transmit data
 		            Receive_Counter <= Receive_Counter + 3'd1; //count the number of times data has been transferred
 		            Received_Data[Receive_Counter] <= Master_Data; //store the transmitted data with the index that lines up with the counter value
 	            end
 
-                if (Receive_Counter == 7 & Scl_Data == 0) begin //if 7 transfers have occurred
+                if (Receive_Counter == 7 && Scl_Data == 0) begin //if 7 transfers have occurred
                     Master_Data <= 1'b0; //hold the line low once SCL goes to low
                     Scl_Edge_Checker <= Scl_Data;
                     Local_Bytes_Received <= Local_Bytes_Received + 4'd1; 
 
-                    if (Scl_Edge_Checker & ~Scl_Data) begin //falling edge detector, last cycle changed from 1 to 0
+                    if (Scl_Edge_Checker && ~Scl_Data) begin //falling edge detector, last cycle changed from 1 to 0
                         Master_Data <= 1'bZ;    //the line can be released
                         Receive_Counter <= 3'd0; 
                         Scl_Edge_Checker <= 1'b0; //set edge checker low because high means that an edge has occurred (not 100% sure this works so this might be a point to check)
@@ -138,16 +167,15 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     Receive_Counter <= 3'd0; //its an interupt so everything should be reset
                     Scl_Edge_Checker <= 1'b0;
                     Total_Receive_Counter <= 4'd0;
-                    CRC_Error <= 1'b0;
                     Master_State <= Master_End;
-                    Scl_State <= Scl_Stop;
+                    //Scl_State <= Scl_Stop;
                 end
 
             end
 
             Master_End: begin
                 if (Scl_Data == 1'b1) begin
-                    Sda_Data <= 1'bZ; //release high to indicate a stop condition
+                    Master_Data <= 1'bZ; //release high to indicate a stop condition
                     Master_State <= Master_Processor; //unsure if i would need to go back to the processor state or if it should keep looping until there is a signal from the processor to stop it 
                 end
             end

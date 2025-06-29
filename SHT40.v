@@ -48,8 +48,6 @@ module i2c_sht40
     assign Temperature_Output = Temperature;
     assign Humidity_Output = Humidity;
     
-    integer i;
-
     //testing variable (this should eventually come from the master module either after combining or as an input)
     reg [3:0] Output_Received_Counter;
     
@@ -75,6 +73,8 @@ module i2c_sht40
 
         case (SHT_State)
             SHT_Initial: begin
+                CRC_Error <= 1'b0;
+
                 if (Output_Received_Counter == 4'd1 || Output_Received_Counter == 4'd4) begin 
                     Temp_Ready <= 1'b0;
                     RH_Ready <= 1'b0;
