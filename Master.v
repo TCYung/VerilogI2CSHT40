@@ -2,10 +2,10 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     (input clk,
     inout Sda_Data,
     input Processor_Ready,
-    //input [6:0] Peripheral_Address,
+    input [6:0] Peripheral_Address,
     input [7:0] Command_Data_Frames,
 
-    //input r_or_w, 
+    input r_or_w, 
     input Scl_Data,
     input i2c_writes, //from peripheral module (how many writes are needed)
     input [3:0] SHT_Reads,
@@ -14,8 +14,8 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     output [7:0] Data_Received,
     output [3:0] Output_Received_Counter,
 
-    output Frames_Read
-
+    output Frames_Read,
+    output [2:0] Master_State_Out
     );
 
     parameter Master_Processor = 3'b000;
@@ -45,10 +45,11 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     reg Ack_Error;
 
     //testing variable
-    reg r_or_w;
+    //reg r_or_w;
     
     initial begin
-        //Master_State = Master_Processor;
+        //Master_State = Master_Processor; //testing for end state uncomment later
+        Master_State = Master_End;
         Sda_Counter = 5'd0;
         Transmit_Counter = 4'd7; //start at 7-1 = 6 to account for the r/w bit
         Local_Bytes_Received = 4'd0;
@@ -56,11 +57,9 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
         Write_Flag = 1'b0;
         Master_Frames_Read = 1'b0;
         Ack_Error = 1'b0;
+        //Master_Data = 1'bZ; //testing for end state uncomment later
+        Master_Data = 1'b0; //testing for end state remove later
         
-        //testing code
-        Master_State = Master_Transmit;
-        Master_Address = 7'b1010101;
-        r_or_w = 1'b0;
     end
 
     //assign Master_Address = Peripheral_Address;
@@ -71,6 +70,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     assign Output_Received_Counter = Total_Receive_Counter;
     
     assign Frames_Read = Master_Frames_Read;
+    assign Master_State_Out = Master_State;
 
     always @(posedge clk) begin
         case(Master_State)
@@ -85,7 +85,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
 
             Master_Start: begin
                 Sda_Counter <= Sda_Counter + 1'b1;
-                if (Master_Data == 1'b1) begin
+                if (Sda_Data == 1'b1) begin
                     Master_Data <= 1'b0; //if SCL is high drop SDA so it creates a start instruction
                     if (Sda_Counter == 5'd20) begin //hold the stop for 20 clk cycles to get 20x the 100khz standard transmission speed
                         Master_Data <= 1'bZ;
@@ -131,7 +131,8 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     end		
                 end
             end
-
+            
+            //looks like the edge checker is working but the simulation doesnt show the edge checker 1 clk cycle behind which is weird 
             Master_Ack: begin
                 Scl_Edge_Checker <= Scl_Data;
                 if (Scl_Edge_Checker && ~Scl_Data) begin //after the falling edge of the write bit command is seen 

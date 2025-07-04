@@ -1,12 +1,12 @@
 module i2c_sht40
     (
         input clk,
-        //input [3:0] Output_Received_Counter,
+        input [3:0] Output_Received_Counter,
         input [7:0] Data_Received, 
         output [3:0] SHT_Reads,
         output [15:0] Temperature_Output,
-        output [15:0] Humidity_Output
-        //output Temp_Ready, RH_Ready
+        output [15:0] Humidity_Output,
+        output Temp_Ready_Out, RH_Ready_Out
     );
 
     parameter SHT_Initial = 3'b000;
@@ -48,8 +48,11 @@ module i2c_sht40
     assign Temperature_Output = Temperature;
     assign Humidity_Output = Humidity;
     
+    assign Temp_Ready_Out = Temp_Ready;
+    assign RH_Ready_Out = RH_Ready;
+    
     //testing variable (this should eventually come from the master module either after combining or as an input)
-    reg [3:0] Output_Received_Counter;
+    //reg [3:0] Output_Received_Counter;
     
     initial begin
         SHT_State = SHT_Initial;
@@ -151,6 +154,11 @@ module i2c_sht40
                         Temp_Ready <= 1'b1;
                         SHT_State <= SHT_Initial;
                     end
+                    else begin
+                        RH_Ready <= 1'b1;
+                        SHT_State <= SHT_Initial;
+                    end
+            
                 end
 
                 else begin //error stops the transmission and is supposed to restart it
