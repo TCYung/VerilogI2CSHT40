@@ -46,7 +46,7 @@ module i2c_scl
 
             
             Scl_Transmit: begin //001
-                if (Scl_Transmit_Counter < 5'd16) begin //the scl flips high to low and low to high 16 total times with 8 "periods"
+                if (Scl_Transmit_Counter < 5'd18) begin //the scl flips high to low and low to high 16 total times with 8 "periods"
                     if (Scl_Counter == 5'd20) begin
                         if (Scl_Data == 1'b1) begin
                             Scl_Data_Local <= 1'b0;
@@ -78,7 +78,7 @@ module i2c_scl
             Scl_Ack: begin //this is the state after the ack pulse where the SCL line is held low until the SDA line goes back low
                 Sda_Edge_Checker <= Sda_Data;
                 
-                if (Master_State_Out == 3'd6) begin //double check that master module can go to end on its own/has the right conditions to go to end state
+                if (Master_State_Out == 3'b110) begin //double check that master module can go to end on its own/has the right conditions to go to end state
                     Scl_State <= Scl_Stop;
                 end
 

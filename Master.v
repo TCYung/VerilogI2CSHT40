@@ -43,6 +43,8 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     reg Master_Frames_Read;
     reg Write_Flag;
     reg Ack_Error;
+    reg Address_Flag;
+    reg Transmit_Counter_Flag;
 
     //testing variable
     //reg r_or_w;
@@ -51,7 +53,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
         Master_State = Master_Processor; //testing for end state uncomment later
         //Master_State = Master_End; //testing for end state remove later
         Sda_Counter = 5'd0;
-        Transmit_Counter = 4'd7; //start at 7-1 = 6 to account for the r/w bit
+        Transmit_Counter = 4'd8; //start at 7-1 = 6 to account for the r/w bit
         Local_Bytes_Received = 4'd0;
         Total_Receive_Counter = 4'd0;
         Write_Flag = 1'b0;
@@ -59,6 +61,8 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
         Ack_Error = 1'b0;
         Master_Data = 1'bZ; //testing for end state uncomment later
         //Master_Data = 1'b0; //testing for end state remove later
+        Address_Flag = 1'b0;
+        Transmit_Counter_Flag = 1'b0;
         
     end
 
@@ -103,31 +107,60 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             //transmit state when it is = to 6 on the address writing is a bit short compared to the time the transmission stays at the other values
             //might want to check this out later
             
-            Master_Transmit: begin //010
-                if (Sda_Counter < 5'd20) //capping the counter in case it goes out of index and resets back to 0 
-                    Sda_Counter <= Sda_Counter + 1'b1;
+            //some kind of flag so that the address is only transmitted once per start/stop period
 
-                if (Sda_Counter == 5'd20 && Scl_Data == 1'b0) begin //at least 20 clock cycles have to pass along with scl being 0
-                    Sda_Counter <= 5'd0;
+            //workaround written for counter since -4'd1 meant that i was 1 cycle behind (ie first cycle supposed to = 1 but its equaling 0)
+            //look into this more to figure out what is actually going on and why i needed to do -4'd2 or any subtraction at all
+            //its definitely kinda hard to make sense of the code here since its really convoluted try to simplify it down 
+            //code works but want to simplify for readability
+
+            Master_Transmit: begin //010
+                if (Sda_Counter < 5'd20) begin //capping the counter in case it goes out of index and resets back to 0 
+                    Sda_Counter <= Sda_Counter + 1'b1;
+                end
+
+                if (Sda_Counter == 5'd20 && Scl_Data == 1'b0 && Transmit_Counter > 4'd0) begin //at least 20 clock cycles have to pass along with scl being 0
                     Transmit_Counter <= Transmit_Counter - 4'd1; 
-                    
                     //there is a -1 in the counter because i need to be able to access to 0th bit but dont want to have to worry about negative #s
-                    if (Master_Address[Transmit_Counter - 4'd1] == 1'b1 && Transmit_Counter !== 4'd0) begin //read the address to write to and set sda to be the corresponding bit 
-                        Master_Data <= 1'bZ;
-                    end
-                    else if (Master_Address[Transmit_Counter - 4'd1] == 1'b0 && Transmit_Counter !== 4'd0) begin
-                        Master_Data <= 1'b0;
-                    end
-                    
-                    if (Transmit_Counter == 4'd1) begin //after the address is given check if its a read or write command
-                        if (r_or_w == 1'b1) begin //write = 1, read = 0
+                    if (Address_Flag == 1'b0) begin
+                        if (Master_Address[Transmit_Counter - 4'd2] == 1'b1) begin //read the address to write to and set sda to be the corresponding bit 
                             Master_Data <= 1'bZ;
-                            Transmit_Counter <= 4'd8; //since this condition goes to the write state that doesnt have a r/w bit it needs = 8-1 = 7
-                            Master_State <= Master_Ack;
+                            Sda_Counter <= 5'd0;
                         end
-                        else begin
-                            Master_Data <= 1'bZ;
-                            Transmit_Counter <= 4'd7; //receive loops back to the transmit block which means there will be a r/w bit so = 7-1 = 6
+
+                        //for some reason this code is activating when transmit counter == 4'd0
+                        if (Master_Address[Transmit_Counter - 4'd2] == 1'b0) begin
+                            Master_Data <= 1'b0;
+                            Sda_Counter <= 5'd0;
+                        end
+                    end
+
+                    if (Address_Flag == 1'b1) begin
+                        Master_State <= Master_Write;
+                    end
+                end
+
+                if (Transmit_Counter == 4'd0) begin //after the address is given check if its a read or write command
+                    if (Transmit_Counter_Flag == 1'b0) begin
+                        Sda_Counter <= 5'd0;
+                        Transmit_Counter_Flag <= 1'b1;
+                    end
+
+                    if (r_or_w == 1'b1 && Transmit_Counter_Flag == 1'b1) begin //write = 1, read = 0
+                        Master_Data <= 1'bZ;
+                        if (Sda_Counter == 5'd20 && Scl_Data == 1'b0) begin
+                            Transmit_Counter <= 4'd9; //since this condition goes to the write state that doesnt have a r/w bit it needs = 8-1 = 7
+                            Sda_Counter <= 5'd0;
+                            Transmit_Counter_Flag <= 1'b0;
+                            Master_State <= Master_Ack; 
+                        end
+                        
+                    end
+                    if (r_or_w == 1'b0 && Transmit_Counter_Flag == 1'b1) begin
+                        Master_Data <= 1'bZ;
+                        if (Sda_Counter == 5'd20 && Scl_Data == 1'b0) begin
+                            Transmit_Counter <= 4'd8; //receive loops back to the transmit block which means there will be a r/w bit so = 7-1 = 6
+                            Sda_Counter <= 5'd0;
                             Master_State <= Master_Receive; 
                         end
                     end		
@@ -140,7 +173,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 if (Scl_Edge_Checker && ~Scl_Data && ~Write_Flag) begin //after the falling edge of the write bit command is seen 
                     Master_Data <= 1'bZ; //release the sda line after the scl has gone from 1 to 0 so that the peripheral can ack
                     Write_Flag <= 1'b1; //only run this code once per visit to this state
-                    //Write_Flag <= ~Write_Flag;
                 end
 
                 if (Write_Flag == 1'b1) begin 
