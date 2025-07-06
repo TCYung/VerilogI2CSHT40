@@ -83,3 +83,4 @@ I2C/I2C.sim/sim_1/behav/xsim/xsim.dir/I2C_TB_behav/obj/xsim_1.win64.obj
 I2C/I2C.sim/sim_1/behav/xsim/xsim.dir/xil_defaultlib/@i2@c_@t@b.sdb
 I2C/I2C.sim/sim_1/behav/xsim/xsim.dir/xil_defaultlib/clock_gen.sdb
 I2C/I2C.sim/sim_1/behav/xsim/xsim.dir/xil_defaultlib/i2c_scl.sdb
+I2C/I2C.sim/sim_1/behav/xsim/xsim.dir/xil_defaultlib/shtack.sdb

@@ -5,6 +5,7 @@ module I2C_TB;
     reg [7:0] Data_Frames;
     reg rw;
     reg processor;
+    reg writes;
 
     wire [3:0] shtreads, bytesreceived, outputreceivedcounter;
     wire [2:0] masterstateout;
@@ -12,6 +13,12 @@ module I2C_TB;
     wire [15:0] tempoutput, rhoutput;
     
     clock_gen testclk1 (clk);
+
+    shtack testack (
+        .clk (clk),
+        .Master_State_Out(masterstateout),
+        .Sda_Data(Sda_Data)
+        );
     
     i2c_master master1 (
         .clk (clk), 
@@ -20,7 +27,7 @@ module I2C_TB;
         .Command_Data_Frames(Data_Frames),
         .Peripheral_Address(Address),
         .Scl_Data(Scl_Data),
-        .i2c_writes(i2c_writes),
+        .i2c_writes(writes),
         .SHT_Reads(shtreads),
         .CRC_Error(CRC_Error),
         .Bytes_Received(bytesreceived),
@@ -48,30 +55,12 @@ module I2C_TB;
         .Master_State_Out(masterstateout)
     );
 
-    // task test_1(); begin
-    //     #10 test_tx_ena <= 1;
-    //     test_load = 9'b111100111;
-    //     end
-    // endtask
-
-    //always @(posedge clk) begin
-
-    //end
-
-
-
     initial begin
-        Address = 7'b1010101;
-        Data_Frames = 8'b10101010;
+        Address = 7'b1000100; //0x44 in hex
+        Data_Frames = 8'b11111101; //0xfd in hex
         rw = 1'b1;
         processor = 1'b1;
-
-
-    //     //test_1();
-
-    //     test_load = 9'b111100111;
-    //     test_tx_ena = 1; 
-    //     counter = 0;
+        writes = 1'b1;
     end
     
     pullup SCL (Scl_Data);
@@ -88,4 +77,26 @@ module clock_gen (output reg clk);
         #1 clk = ~clk;
         
     end
+endmodule
+
+module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out);
+    reg sdadatalocal;
+    reg sdaflag; 
+
+    initial begin
+        sdadatalocal = 1'bZ;
+    end
+    assign Sda_Data = sdadatalocal;
+
+    always @(posedge clk) begin
+        if (Master_State_Out == 3'b101) begin
+            sdadatalocal <= 1'b0;  
+            sdaflag <= 1'b1;          
+        end
+
+        if (Master_State_Out !== 3'b101 && sdaflag == 1'b1) begin
+            sdadatalocal <= 1'bZ;
+            sdaflag <= 1'b0;
+        end
+    end 
 endmodule
