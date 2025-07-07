@@ -17,7 +17,8 @@ module I2C_TB;
     shtack testack (
         .clk (clk),
         .Master_State_Out(masterstateout),
-        .Sda_Data(Sda_Data)
+        .Sda_Data(Sda_Data),
+        .Scl_Data(Scl_Data)
         );
     
     i2c_master master1 (
@@ -58,7 +59,7 @@ module I2C_TB;
     initial begin
         Address = 7'b1000100; //0x44 in hex
         Data_Frames = 8'b11111101; //0xfd in hex
-        rw = 1'b1;
+        rw = 1'b0;
         processor = 1'b1;
         writes = 1'b1;
     end
@@ -79,24 +80,34 @@ module clock_gen (output reg clk);
     end
 endmodule
 
-module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out);
+module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Scl_Data);
     reg sdadatalocal;
     reg sdaflag; 
+    reg scledgechecker;
+    reg [3:0] Counter; 
 
     initial begin
         sdadatalocal = 1'bZ;
+        scledgechecker = 1'b0;
+        Counter = 4'd0;
     end
+
     assign Sda_Data = sdadatalocal;
 
     always @(posedge clk) begin
-        if (Master_State_Out == 3'b101) begin
-            sdadatalocal <= 1'b0;  
-            sdaflag <= 1'b1;          
-        end
-
-        if (Master_State_Out !== 3'b101 && sdaflag == 1'b1) begin
-            sdadatalocal <= 1'bZ;
-            sdaflag <= 1'b0;
+        if (Master_State_Out == 3'b010 || Counter > 4'd7) begin
+            scledgechecker <= Scl_Data;
+            if (scledgechecker && ~Scl_Data) begin
+                Counter <= Counter + 4'd1;
+            end 
+            if (Counter == 4'd8) begin
+                sdadatalocal <= 1'b0; 
+            end
+            if (Counter == 4'd9) begin
+                sdadatalocal <= 1'bZ;
+                Counter <= 4'd0;
+            end
+                   
         end
     end 
 endmodule
