@@ -2,8 +2,8 @@ module i2c_scl
     (input clk,
     inout Scl_Data,
     input Sda_Data,
-    input [2:0] Master_State_Out
-
+    input [2:0] Master_State_Out,
+    output [2:0] Scl_State_Out
     );
 
     parameter Scl_Start = 3'b000;
@@ -18,6 +18,7 @@ module i2c_scl
     reg [4:0] Scl_Transmit_Counter;
 
     assign Scl_Data = Scl_Data_Local;
+    assign Scl_State_Out = Scl_State;
 
     initial begin
         Scl_Counter = 5'd0;
@@ -81,8 +82,9 @@ module i2c_scl
                 if (Master_State_Out == 3'b110) begin //double check that master module can go to end on its own/has the right conditions to go to end state
                     Scl_State <= Scl_Stop;
                 end
-
-                else if (Sda_Edge_Checker && ~Sda_Data) begin //this code should not take priority over the stop state change
+                
+                //the below looks fine in the simulation but might have problems in some edge cases
+                else if (Sda_Data == 1'b1) begin //this code should not take priority over the stop state change
                     Scl_State <= Scl_Transmit;
                 end
             end

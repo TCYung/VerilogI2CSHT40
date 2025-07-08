@@ -11,6 +11,7 @@ module I2C_TB;
     wire [2:0] masterstateout;
     wire [7:0] datareceived;
     wire [15:0] tempoutput, rhoutput;
+    wire [2:0] sclstateout;
     
     clock_gen testclk1 (clk);
 
@@ -36,7 +37,8 @@ module I2C_TB;
         .Output_Received_Counter(outputreceivedcounter),
         .Frames_Read(Frames_Read),
         .Master_State_Out(masterstateout),
-        .r_or_w(rw)
+        .r_or_w(rw),
+        .Scl_State_Out(sclstateout)
         
         );
     i2c_sht40 peripheral1 (
@@ -53,7 +55,8 @@ module I2C_TB;
         .clk(clk),
         .Scl_Data(Scl_Data),
         .Sda_Data(Sda_Data),
-        .Master_State_Out(masterstateout)
+        .Master_State_Out(masterstateout),
+        .Scl_State_Out(sclstateout)
     );
 
     initial begin
@@ -95,7 +98,7 @@ module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
     assign Sda_Data = sdadatalocal;
 
     always @(posedge clk) begin
-        if (Master_State_Out == 3'b010 || Counter > 4'd7) begin
+        if (Master_State_Out == 3'b010 || Master_State_Out == 3'b100 || Counter > 4'd7) begin
             scledgechecker <= Scl_Data;
             if (scledgechecker && ~Scl_Data) begin
                 Counter <= Counter + 4'd1;

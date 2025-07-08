@@ -10,6 +10,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     input i2c_writes, //from peripheral module (how many writes are needed)
     input [3:0] SHT_Reads,
     input CRC_Error,
+    input [2:0] Scl_State_Out,
     output [3:0] Bytes_Received,
     output [7:0] Data_Received,
     output [3:0] Output_Received_Counter,
@@ -68,6 +69,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     end
 
     assign Master_Address = Peripheral_Address;
+    assign Master_Frames = Command_Data_Frames;
     assign Sda_Data = Master_Data;
     assign Bytes_Received = Local_Bytes_Received;
     assign Data_Received = Received_Data;
@@ -150,7 +152,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     if (r_or_w == 1'b0 && Transmit_Counter_Flag == 1'b1) begin //write = 0, read = 1
                         Master_Data <= 1'b0;
                         if (Sda_Counter == 5'd20 && Scl_Data == 1'b0) begin
-                            Transmit_Counter <= 4'd9; //since this condition goes to the write state that doesnt have a r/w bit it needs = 8-1 = 7
+                            Transmit_Counter <= 4'd8; //since this condition goes to the write state that doesnt have a r/w bit it needs = 8-1 = 7
                             Sda_Counter <= 5'd0;
                             Transmit_Counter_Flag <= 1'b0;
                             Master_State <= Master_Ack; 
@@ -209,8 +211,9 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 Master_Frames_Read <= 1'b0;
                 if (Sda_Counter < 5'd20) //capping the counter in case it goes out of index and resets back to 0 
                     Sda_Counter <= Sda_Counter + 1'b1;
-
-                if (Sda_Counter == 5'd20 && Scl_Data == 1'b0) begin //at least 20 clock cycles have to pass along with scl being 0
+                
+                //something in the transmit conditional statement should also have a checker for the scl state
+                if (Sda_Counter == 5'd20 && Scl_Data == 1'b0 && Scl_State_Out == 3'b001) begin //at least 20 clock cycles have to pass along with scl being 0
                     Sda_Counter <= 5'd0;
                     Transmit_Counter <= Transmit_Counter - 4'd1; 
                     
