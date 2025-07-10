@@ -37,7 +37,7 @@ module I2C_TB;
         .Output_Received_Counter(outputreceivedcounter),
         .Frames_Read(Frames_Read),
         .Master_State_Out(masterstateout),
-        .r_or_w(rw),
+        //.r_or_w(rw),
         .Scl_State_Out(sclstateout)
         
         );
@@ -62,11 +62,24 @@ module I2C_TB;
     initial begin
         Address = 7'b1000100; //0x44 in hex
         Data_Frames = 8'b11111101; //0xfd in hex
-        rw = 1'b0;
+        //rw = 1'b0;
         processor = 1'b1;
         writes = 1'b1;
     end
     
+    //we are going to use an always block to simulate the processor and maybe also the peripheral? pretty much just any external inputs to the program
+    //once the write process finishes i want to change it to the read state
+    //might have to change the processor ready to 0?
+
+    //change rw to 1 
+    //use scl edge checker so that sda switches during the falling edge and holds it until the next falling edge 
+    //make sure to release the line after the 8th transmission so that the master can ack 
+    //start with making sure that one byte transmission works and that acks and waveforms look fine
+
+    always @(posedge clk) begin
+        
+    end
+
     pullup SCL (Scl_Data);
     pullup SDA (Sda_Data);
 

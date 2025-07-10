@@ -5,7 +5,12 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     input [6:0] Peripheral_Address,
     input [7:0] Command_Data_Frames,
 
-    input r_or_w, 
+    //this should be internal if we go to the end state it should reset back to write
+    //otherwise it should keep looping the repeated start condition 
+    //its possible that the peripheral can keep the written instruction and if you are accessing the same peripheral you dont need to rewrite
+    //but this is easier for now, can test later on 
+    //input r_or_w, 
+
     input Scl_Data,
     input i2c_writes, //from peripheral module (how many writes are needed)
     input [3:0] SHT_Reads,
@@ -48,7 +53,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     reg Transmit_Counter_Flag;
 
     //testing variable
-    //reg r_or_w;
+    reg r_or_w;
     
     initial begin
         Master_State = Master_Processor; //testing for end state uncomment later
@@ -65,6 +70,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
         Address_Flag = 1'b0;
         Transmit_Counter_Flag = 1'b0;
         Ack_Pass = 1'b0;
+        r_or_w = 1'b0;
         
     end
 
@@ -84,7 +90,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             Master_Processor: begin //the I2C peripheral specific module will give a ready signal and the state will change to start
                 if (Processor_Ready == 1'b1) begin
                     Ack_Error <= 1'b0;
-                    Master_Writes <= i2c_writes; //need to check if this is the right place to put this 
                     Master_State <= Master_Start;
                 end
             end
@@ -96,6 +101,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     if (Sda_Counter == 5'd20) begin //hold the stop for 20 clk cycles to get 20x the 100khz standard transmission speed
                         //Master_Data <= 1'bZ; //leaving the line high would mean an accidental high signal
                         Sda_Counter <= 5'b0;
+                        Master_Writes <= i2c_writes; //need to check if this is the right place to put this 
                         if (r_or_w == 1'b0) begin
                             Master_State <= Master_Transmit;
                         end
@@ -110,12 +116,12 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             //transmit state when it is = to 6 on the address writing is a bit short compared to the time the transmission stays at the other values
             //might want to check this out later
             
-            //some kind of flag so that the address is only transmitted once per start/stop period
-
             //workaround written for counter since -4'd1 meant that i was 1 cycle behind (ie first cycle supposed to = 1 but its equaling 0)
             //look into this more to figure out what is actually going on and why i needed to do -4'd2 or any subtraction at all
             //its definitely kinda hard to make sense of the code here since its really convoluted try to simplify it down 
             //code works but want to simplify for readability
+
+            //i think i need to split r/w into a different state, if this works for the read code as well im probably going to leave it alone
 
             Master_Transmit: begin //010
                 if (Sda_Counter < 5'd20) begin //capping the counter in case it goes out of index and resets back to 0 
@@ -124,14 +130,13 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
 
                 if (Sda_Counter == 5'd20 && Scl_Data == 1'b0 && Transmit_Counter > 4'd0) begin //at least 20 clock cycles have to pass along with scl being 0
                     Transmit_Counter <= Transmit_Counter - 4'd1; 
-                    //there is a -1 in the counter because i need to be able to access to 0th bit but dont want to have to worry about negative #s
+                    //there is a -2 in the counter because r/w bit, makes it so that it transitions to ack state at the right time as well as to not access "negative" index
                     if (Address_Flag == 1'b0) begin
                         if (Master_Address[Transmit_Counter - 4'd2] == 1'b1) begin //read the address to write to and set sda to be the corresponding bit 
                             Master_Data <= 1'bZ;
                             Sda_Counter <= 5'd0;
                         end
 
-                        //for some reason this code is activating when transmit counter == 4'd0
                         if (Master_Address[Transmit_Counter - 4'd2] == 1'b0) begin
                             Master_Data <= 1'b0;
                             Sda_Counter <= 5'd0;
@@ -145,14 +150,14 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
 
                 if (Transmit_Counter == 4'd0) begin //after the address is given check if its a read or write command
                     if (Transmit_Counter_Flag == 1'b0) begin
-                        Sda_Counter <= 5'd0;
+                        Sda_Counter <= 5'd0; //delays moving to ack state 
                         Transmit_Counter_Flag <= 1'b1;
                     end
 
                     if (r_or_w == 1'b0 && Transmit_Counter_Flag == 1'b1) begin //write = 0, read = 1
                         Master_Data <= 1'b0;
                         if (Sda_Counter == 5'd20 && Scl_Data == 1'b0) begin
-                            Transmit_Counter <= 4'd8; //since this condition goes to the write state that doesnt have a r/w bit it needs = 8-1 = 7
+                            Transmit_Counter <= 4'd8; 
                             Sda_Counter <= 5'd0;
                             Transmit_Counter_Flag <= 1'b0;
                             Master_State <= Master_Ack; 
@@ -162,7 +167,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     if (r_or_w == 1'b1 && Transmit_Counter_Flag == 1'b1) begin
                         Master_Data <= 1'bZ;
                         if (Sda_Counter == 5'd20 && Scl_Data == 1'b0) begin
-                            Transmit_Counter <= 4'd8; //receive loops back to the transmit block which means there will be a r/w bit so = 7-1 = 6
+                            Transmit_Counter <= 4'd8; 
                             Sda_Counter <= 5'd0;
                             Master_State <= Master_Receive; 
                         end
@@ -172,32 +177,39 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             
             Master_Ack: begin //101
                 Scl_Edge_Checker <= Scl_Data;
+                
+                if (Master_Writes == 4'd0) begin
+                    r_or_w <= 1'b1; //switch to reading
+                end
+
                 if (~Scl_Data && ~Write_Flag) begin 
                     Master_Data <= 1'bZ; //release the sda line after the scl has gone from 1 to 0 so that the peripheral can ack
                     Write_Flag <= 1'b1; //only run this code once per visit to this state
                 end
 
+                // once the line has been released the below code can start checking for an ack
                 if (Write_Flag == 1'b1) begin 
                     if (Scl_Data == 1'b1 && Sda_Data == 1'b0) begin //check if the ack signal is present when the scl is high 
                         Ack_Pass <= 1'b1;
                     end
 
                     // need to make sure the ack error works properly (i dont think it does, it send to end state but doesnt trigger a stop -> restart)
-
+                    //if there is no ack go to the end state and reset the flags
                     if (Scl_Data == 1'b1 && Sda_Data == 1'b1) begin
-                        Write_Flag <= 1'b0; //reset both "flags"
+                        Write_Flag <= 1'b0; 
                         Scl_Edge_Checker <= 1'b0;
                         Ack_Error <= 1'b1;
                         Master_State <= Master_End;
                     end
-
+                    
+                    //if there was a successful ack and scl has just negedged reset all the flags and check if there are more writes 
                     if (Ack_Pass == 1'b1 && Scl_Edge_Checker && ~Scl_Data) begin
-                        Write_Flag <= 1'b0; //reset both "flags"
+                        Write_Flag <= 1'b0; 
                         Scl_Edge_Checker <= 1'b0;
                         Ack_Pass <= 1'b0;
                         if (Master_Writes == 3'd0) begin //if the master writes is 0 then all the write commands have finished (end -> processor -> transmit)
-                            Master_Frames_Read <= 1'b1;
-                            Master_State <= Master_End;
+                            Master_Frames_Read <= 1'b1; //tell the processor that the write was sucessful and to load in any new write byte
+                            Master_State <= Master_Processor; //possible to change this to repeated start input
                         end
                         else begin
                             Master_Frames_Read <= 1'b1; //there might need to be a timer for the processor so that it doesnt flip past to the next command before intended
@@ -212,8 +224,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 if (Sda_Counter < 5'd20) //capping the counter in case it goes out of index and resets back to 0 
                     Sda_Counter <= Sda_Counter + 1'b1;
                 
-                //something in the transmit conditional statement should also have a checker for the scl state
-                if (Sda_Counter == 5'd20 && Scl_Data == 1'b0 && Scl_State_Out == 3'b001) begin //at least 20 clock cycles have to pass along with scl being 0
+                if (Sda_Counter == 5'd20 && Scl_Data == 1'b0 && Scl_State_Out == 3'b001) begin //change the value once per clk cycle, scl state checker because scl goes to transmit later than master
                     Sda_Counter <= 5'd0;
                     Transmit_Counter <= Transmit_Counter - 4'd1; 
                     
@@ -251,8 +262,9 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
 
                         if (SHT_Reads == Total_Receive_Counter) begin //after 6 transfers go to the end state
                             Master_Data <= 1'b0;
-                            Master_State <= Master_End;
                             Total_Receive_Counter <= 4'd0;
+                            Master_State <= Master_End;
+                            
                         end
                     end
                 end 
@@ -273,6 +285,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             Master_End: begin
                 if (Scl_Data == 1'b1) begin
                     Master_Data <= 1'bZ; //release high to indicate a stop condition
+                    r_or_w <= 1'b0;
                     Master_State <= Master_Processor; //unsure if i would need to go back to the processor state or if it should keep looping until there is a signal from the processor to stop it 
                 end
             end
