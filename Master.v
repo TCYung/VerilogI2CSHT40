@@ -42,7 +42,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     reg [3:0] Transmit_Counter;
     reg [2:0] Master_State;
     reg Master_Data;
-    reg [2:0] Receive_Counter;
+    reg [3:0] Receive_Counter;
     reg [7:0] Received_Data;
     reg Scl_Edge_Checker;
     reg [3:0] Local_Bytes_Received;
@@ -72,6 +72,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
         Transmit_Counter_Flag = 1'b0;
         Ack_Pass = 1'b0;
         r_or_w = 1'b0;
+        Receive_Counter = 4'd0;
         
     end
 
@@ -107,6 +108,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                         end
                         
                         if (r_or_w == 1'b1) begin
+                            Master_Data <= 1'bZ;
                             Master_State <= Master_Receive;
                         end
                     end
@@ -135,6 +137,9 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 if (Sda_Counter < 5'd20) begin //capping the counter in case it goes out of index and resets back to 0 
                     Sda_Counter <= Sda_Counter + 1'b1;
                 end
+                
+                //can try making the counter increment instead of decrement this should solve the issue of 0 and going negative
+                //should be doing this for the receiver code
 
                 if (Sda_Counter == 5'd20 && Scl_Data == 1'b0 && Transmit_Counter > 4'd0) begin //at least 20 clock cycles have to pass along with scl being 0
                     Transmit_Counter <= Transmit_Counter - 4'd1; 
@@ -254,22 +259,24 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             
             //011
             Master_Receive: begin //some kind of counter that goes to 7 and then gives an ack
-                if (Scl_Data == 1 && Receive_Counter < 3'd7) begin //if the SCL line is high the peripheral can transmit data
-		            Receive_Counter <= Receive_Counter + 3'd1; //count the number of times data has been transferred
-		            Received_Data[Receive_Counter] <= Master_Data; //store the transmitted data with the index that lines up with the counter value
+                Scl_Edge_Checker <= Scl_Data;
+                if (Receive_Counter < 4'd8 && ~Scl_Edge_Checker && Scl_Data) begin //if the SCL line is high the peripheral can transmit data
+		            Receive_Counter <= Receive_Counter + 4'd1; //count the number of times data has been transferred
+		            Received_Data[4'd7-Receive_Counter] <= Sda_Data; //store the transmitted data with the index that lines up with the counter value
 	            end
 
-                if (Receive_Counter == 7 && Scl_Data == 0) begin //if 7 transfers have occurred
+                //this code needs to activate a clk cycle earlier but i cant make it receive counter == 4'd7
+                if (Receive_Counter == 4'd8 && Scl_Data == 1'b0) begin //if 7 transfers have occurred
                     Master_Data <= 1'b0; //hold the line low once SCL goes to low
-                    Scl_Edge_Checker <= Scl_Data;
-                    Local_Bytes_Received <= Local_Bytes_Received + 4'd1; 
+                    Local_Bytes_Received <= Local_Bytes_Received + 4'd1; //this is counting multiple times in a cycle changes need to be made
 
                     if (Scl_Edge_Checker && ~Scl_Data) begin //falling edge detector, last cycle changed from 1 to 0
                         Master_Data <= 1'bZ;    //the line can be released
-                        Receive_Counter <= 3'd0; 
+                        Receive_Counter <= 4'd0; 
                         Scl_Edge_Checker <= 1'b0; //set edge checker low because high means that an edge has occurred (not 100% sure this works so this might be a point to check)
                         Total_Receive_Counter <= Total_Receive_Counter + 4'd1;
-
+                        
+                        //modifications need to be made for repeated start
                         if (SHT_Reads == Total_Receive_Counter) begin //after 6 transfers go to the end state
                             Master_Data <= 1'b0;
                             Total_Receive_Counter <= 4'd0;

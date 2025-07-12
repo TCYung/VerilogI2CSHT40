@@ -6,7 +6,6 @@ module I2C_TB;
     reg rw;
     reg processor;
     reg writes;
-    reg tbsclchecker;
 
     wire [3:0] shtreads, bytesreceived, outputreceivedcounter;
     wire [2:0] masterstateout;
@@ -20,7 +19,8 @@ module I2C_TB;
         .clk (clk),
         .Master_State_Out(masterstateout),
         .Sda_Data(Sda_Data),
-        .Scl_Data(Scl_Data)
+        .Scl_Data(Scl_Data),
+        .Scl_State_Out(sclstateout)
         );
     
     i2c_master master1 (
@@ -76,12 +76,6 @@ module I2C_TB;
     //make sure to release the line after the 8th transmission so that the master can ack 
     //start with making sure that one byte transmission works and that acks and waveforms look fine
 
-    always @(posedge clk) begin
-        if (masterstateout == 3'b011) begin
-            
-        end
-    end
-
     pullup SCL (Scl_Data);
     pullup SDA (Sda_Data);
 
@@ -98,16 +92,20 @@ module clock_gen (output reg clk);
     end
 endmodule
 
-module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Scl_Data);
+module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Scl_Data, input [2:0] Scl_State_Out);
     reg sdadatalocal;
     reg sdaflag; 
     reg scledgechecker;
     reg [3:0] Counter; 
+    reg [4:0] tbcounter;
+    reg [7:0] tboutdata;
 
     initial begin
         sdadatalocal = 1'bZ;
         scledgechecker = 1'b0;
         Counter = 4'd0;
+        tbcounter = 5'd8;
+        tboutdata = 8'b10111110; //0xbe
     end
 
     assign Sda_Data = sdadatalocal;
@@ -124,8 +122,24 @@ module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
             if (Counter == 4'd9) begin
                 sdadatalocal <= 1'bZ;
                 Counter <= 4'd0;
+            end               
+        end
+        if (Master_State_Out == 3'b011) begin
+            scledgechecker <= Scl_Data;
+            if (scledgechecker && ~Scl_Data) begin
+                tbcounter <= tbcounter - 5'd1;
             end
-                   
+            if (tboutdata[tbcounter-4'd1] == 1'b0 && tbcounter > 4'd0) begin
+                sdadatalocal <= 1'b0;
+            end
+            if (tboutdata[tbcounter-4'd1] == 1'b1 && tbcounter > 4'd0) begin
+                sdadatalocal <= 1'bZ;
+            end
+            if (tbcounter == 4'd0) begin
+                tbcounter <= 4'd0;
+                sdadatalocal <= 1'bZ;
+            end
+            
         end
     end 
 endmodule
