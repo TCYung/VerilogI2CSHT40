@@ -44,7 +44,6 @@ module i2c_scl
                     end   
                 end
             end
-
             
             Scl_Transmit: begin //001
                 if (Scl_Transmit_Counter < 5'd18) begin //the scl flips high to low and low to high 16 total times with 8 "periods"
@@ -83,7 +82,12 @@ module i2c_scl
                     Scl_State <= Scl_Stop;
                 end
                 
+                if (Master_State_Out == 3'b001) begin
+                    Scl_Data_Local <= 1'bZ;
+                    Scl_State <= Scl_Start;
+                end
                 //the below looks fine in the simulation but might have problems in some edge cases
+                //look to change this to be dependent on a variable or on the state that the master module is in 
                 else if (Sda_Data == 1'b1) begin //this code should not take priority over the stop state change
                     Scl_State <= Scl_Transmit;
                 end

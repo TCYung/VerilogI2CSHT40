@@ -6,6 +6,7 @@ module I2C_TB;
     reg rw;
     reg processor;
     reg writes;
+    reg tbsclchecker;
 
     wire [3:0] shtreads, bytesreceived, outputreceivedcounter;
     wire [2:0] masterstateout;
@@ -71,13 +72,14 @@ module I2C_TB;
     //once the write process finishes i want to change it to the read state
     //might have to change the processor ready to 0?
 
-    //change rw to 1 
     //use scl edge checker so that sda switches during the falling edge and holds it until the next falling edge 
     //make sure to release the line after the 8th transmission so that the master can ack 
     //start with making sure that one byte transmission works and that acks and waveforms look fine
 
     always @(posedge clk) begin
-        
+        if (masterstateout == 3'b011) begin
+            
+        end
     end
 
     pullup SCL (Scl_Data);
