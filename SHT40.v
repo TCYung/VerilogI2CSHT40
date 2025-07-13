@@ -87,20 +87,20 @@ module i2c_sht40
             
             SHT_1: begin
                 //assign first byte of temp if 4'd1 or first byte of RH if 4'd4
-                if (Output_Received_Counter == 4'd1) begin
+                if (Output_Received_Counter == 1) begin
                     Temperature[15:8] <= Data_Received;
                 end
                 else begin
                     Humidity[15:8] <= Data_Received;
                 end
                 
-                if (SHT1_Counter == 1'b0) begin //runs code only once
+                if (~SHT1_Counter) begin //runs code only once
                     Temp_CRC <= (8'b11111111 ^ SHT_Input1); 
-                    SHT1_Counter <= 1'b1;
+                    SHT1_Counter <= 1;
                 end  
                 
-                if (CRC_Counter < 4'd8 && SHT1_Counter == 1'b1) begin
-                    CRC_Counter <= CRC_Counter + 4'd1;
+                if (CRC_Counter < 8 && SHT1_Counter) begin
+                    CRC_Counter <= CRC_Counter + 1;
                     if (Temp_CRC[7] == 1'b0) begin
                         Temp_CRC <= {Temp_CRC[6:0], 1'b0};
                     end
@@ -109,31 +109,31 @@ module i2c_sht40
                     end
                 end
                     
-                if (Output_Received_Counter == 4'd2 || Output_Received_Counter == 4'd5) begin
-                    SHT1_Counter <= 1'b0;
+                if (Output_Received_Counter == 2 || Output_Received_Counter == 5) begin
+                    SHT1_Counter <= 0;
                     SHT_State <= SHT_2; 
-                    CRC_Counter <= 4'd0;
+                    CRC_Counter <= 0;
                 end
                     
             end
 
             SHT_2: begin
                 //assign second byte of temp if 4'd1 or second byte of RH if 4'd4
-                if (Output_Received_Counter == 4'd2) begin
+                if (Output_Received_Counter == 2) begin
                     Temperature[7:0] <= Data_Received;
                 end
                 else begin
                     Humidity[7:0] <= Data_Received;
                 end
 
-                if (SHT2_Counter == 1'b0) begin //runs code only once
+                if (~SHT2_Counter) begin //runs code only once
                     Temp_CRC <= Temp_CRC ^ SHT_Input2;
-                    SHT2_Counter <= 1'b1;
+                    SHT2_Counter <= 1;
                 end
 
-                if (CRC_Counter < 4'd8 && SHT2_Counter == 1'b1) begin
-                    CRC_Counter <= CRC_Counter + 4'd1;
-                    if (Temp_CRC[7] == 1'b0) begin
+                if (CRC_Counter < 8 && SHT2_Counter) begin
+                    CRC_Counter <= CRC_Counter + 1;
+                    if (Temp_CRC[7] == 0) begin
                         Temp_CRC <= {Temp_CRC[6:0], 1'b0};
                     end
                     else begin
@@ -141,28 +141,28 @@ module i2c_sht40
                     end
                 end
 
-                if (Output_Received_Counter == 4'd3 || Output_Received_Counter == 4'd6) begin
-                    SHT2_Counter <= 1'b0;
+                if (Output_Received_Counter == 3 || Output_Received_Counter == 6) begin
+                    SHT2_Counter <= 0;
                     SHT_State <= SHT_3; 
-                    CRC_Counter <= 4'd0;
+                    CRC_Counter <= 0;
                 end              
             end
 
             SHT_3: begin //the master module uses the SHT_Reads so once it reaches 6 it will go to end state 
                 if (Temp_CRC == SHT_CRC) begin
-                    if (Output_Received_Counter == 4'd3) begin
-                        Temp_Ready <= 1'b1;
+                    if (Output_Received_Counter == 3) begin
+                        Temp_Ready <= 1;
                         SHT_State <= SHT_Initial;
                     end
                     else begin
-                        RH_Ready <= 1'b1;
+                        RH_Ready <= 1;
                         SHT_State <= SHT_Initial;
                     end
             
                 end
 
                 else begin //error stops the transmission and is supposed to restart it
-                    CRC_Error <= 1'b1;
+                    CRC_Error <= 1;
                     SHT_State <= SHT_Initial;
                 end
             end

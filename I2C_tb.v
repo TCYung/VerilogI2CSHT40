@@ -113,7 +113,7 @@ module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
     always @(posedge clk) begin
         if (Master_State_Out == 3'b010 || Master_State_Out == 3'b100 || Counter > 4'd7) begin
             scledgechecker <= Scl_Data;
-            if (scledgechecker && ~Scl_Data) begin
+            if (scledgechecker && !Scl_Data) begin
                 Counter <= Counter + 4'd1;
             end 
             if (Counter == 4'd8) begin
@@ -126,7 +126,7 @@ module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
         end
         if (Master_State_Out == 3'b011) begin
             scledgechecker <= Scl_Data;
-            if (scledgechecker && ~Scl_Data) begin
+            if (scledgechecker && !Scl_Data) begin
                 tbcounter <= tbcounter - 5'd1;
             end
             if (tboutdata[tbcounter-4'd1] == 1'b0 && tbcounter > 4'd0) begin
