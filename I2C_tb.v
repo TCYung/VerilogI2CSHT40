@@ -20,7 +20,8 @@ module I2C_TB;
         .Master_State_Out(masterstateout),
         .Sda_Data(Sda_Data),
         .Scl_Data(Scl_Data),
-        .Scl_State_Out(sclstateout)
+        .Scl_State_Out(sclstateout),
+        .Output_Received_Counter(outputreceivedcounter)
         );
     
     i2c_master master1 (
@@ -92,13 +93,14 @@ module clock_gen (output reg clk);
     end
 endmodule
 
-module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Scl_Data, input [2:0] Scl_State_Out);
+module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Scl_Data, input [2:0] Scl_State_Out, input [3:0] Output_Received_Counter);
     reg sdadatalocal;
     reg sdaflag; 
     reg scledgechecker;
     reg [3:0] Counter; 
     reg [4:0] tbcounter;
     reg [7:0] tboutdata;
+    reg tbfinishflag;
 
     initial begin
         sdadatalocal = 1'bZ;
@@ -106,11 +108,29 @@ module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
         Counter = 4'd0;
         tbcounter = 5'd8;
         tboutdata = 8'b10111110; //0xbe
+        tbfinishflag = 1;
     end
 
     assign Sda_Data = sdadatalocal;
 
     always @(posedge clk) begin
+        case (Output_Received_Counter) 
+            1: begin
+                tboutdata <= 8'b11101111;
+                if (tbfinishflag == 0 && tboutdata !== 8'b11101111) begin
+                    tbcounter <= 8;
+                    tbfinishflag <= 1;
+                end
+            end
+            2: begin
+                tboutdata <= 8'b10010010;
+                if (tbfinishflag == 0) begin
+                    tbcounter <= 8;
+                    tbfinishflag <= 1;
+                end
+            end
+        endcase
+
         if (Master_State_Out == 3'b010 || Master_State_Out == 3'b100 || Counter > 4'd7) begin
             scledgechecker <= Scl_Data;
             if (scledgechecker && !Scl_Data) begin
@@ -124,7 +144,7 @@ module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
                 Counter <= 4'd0;
             end               
         end
-        if (Master_State_Out == 3'b011) begin
+        if (Master_State_Out == 3'b011 && Scl_State_Out == 3'b001) begin
             scledgechecker <= Scl_Data;
             if (scledgechecker && !Scl_Data) begin
                 tbcounter <= tbcounter - 5'd1;
@@ -135,8 +155,9 @@ module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
             if (tboutdata[tbcounter-4'd1] == 1'b1 && tbcounter > 4'd0) begin
                 sdadatalocal <= 1'bZ;
             end
-            if (tbcounter == 4'd0) begin
+            if (tbcounter == 0 && tbfinishflag) begin
                 tbcounter <= 4'd0;
+                tbfinishflag <= 0;
                 sdadatalocal <= 1'bZ;
             end
             
