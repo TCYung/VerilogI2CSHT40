@@ -124,7 +124,28 @@ module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
             end
             2: begin
                 tboutdata <= 8'b10010010;
-                if (tbfinishflag == 0) begin
+                if (tbfinishflag == 0 && tboutdata !== 8'b10010010) begin
+                    tbcounter <= 8;
+                    tbfinishflag <= 1;
+                end
+            end
+            3: begin
+                tboutdata <= 8'b10101011;
+                if (tbfinishflag == 0 && tboutdata !== 8'b10101011) begin
+                    tbcounter <= 8;
+                    tbfinishflag <= 1;
+                end
+            end
+            4: begin
+                tboutdata <= 8'b11001101;
+                if (tbfinishflag == 0 && tboutdata !== 8'b11001101) begin
+                    tbcounter <= 8;
+                    tbfinishflag <= 1;
+                end
+            end
+            5: begin
+                tboutdata <= 8'b01101111;
+                if (tbfinishflag == 0 && tboutdata !== 8'b01101111) begin
                     tbcounter <= 8;
                     tbfinishflag <= 1;
                 end

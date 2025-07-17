@@ -153,7 +153,7 @@ module i2c_sht40
                     end            
                 end
 
-                else begin //error stops the transmission and is supposed to restart it
+                if (Temp_CRC !== Data_Received) begin //error stops the transmission and is supposed to restart it
                     CRC_Error <= 1;
                     SHT_State <= SHT_Initial;
                 end

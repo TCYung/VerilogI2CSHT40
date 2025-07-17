@@ -95,9 +95,9 @@ module i2c_scl
                     Scl_Data_Local <= 1'bZ;
                     Scl_State <= Scl_Start;
                 end
-                //the below looks fine in the simulation but might have problems in some edge cases
+                //the below looks fine in the simulation but might have problems in some edge cases (breaks when first bit of the next transmission is 0)
                 //look to change this to be dependent on a variable or on the state that the master module is in 
-                else if (Sda_Data) begin //this code should not take priority over the stop state change
+                else if (Sda_Data || Master_State_Out == Master_Receive) begin //this code should not take priority over the stop state change
                     Scl_State <= Scl_Transmit;
                 end
             end
