@@ -57,7 +57,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     reg Master_Frames_Read;
     reg Write_Flag;
     reg Ack_Error, Ack_Pass;
-    reg Address_Flag;
     reg Transmit_Counter_Flag;
     reg r_or_w;
     reg Write_State_Flag;
@@ -74,7 +73,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
         Ack_Error = 1'b0;
         Master_Data = 1'bZ; //testing for end state uncomment later
         //Master_Data = 1'b0; //testing for end state remove later
-        Address_Flag = 1'b0;
         Transmit_Counter_Flag = 1'b0;
         Ack_Pass = 1'b0;
         r_or_w = 1'b0;
@@ -110,12 +108,15 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             end
             
             Master_Start: begin //001
-                Sda_Counter <= Sda_Counter + 1;
+                if (Sda_Counter < 20) begin //capping the counter in case it goes out of index and resets back to 0 
+                    Sda_Counter <= Sda_Counter + 1;
+                end
+                
                 Write_State_Flag <= 0;
                 if ((Sda_Data || Sda_Counter_Ready) && Scl_State_Out == Scl_Start) begin //this or condition doesnt look right
                     Master_Data <= 1'b0; //if SCL is high drop SDA so it creates a start instruction
                     if (Sda_Counter_Ready) begin //hold the stop for 20 clk cycles to get 20x the 100khz standard transmission speed
-                        Sda_Counter <= 0;
+                        //Sda_Counter <= 0;
                         Master_State <= Master_Transmit; 
                     end
                 end
@@ -153,21 +154,15 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 if (Sda_Counter_Ready && !Scl_Data && Transmit_Counter > 0) begin //at least 20 clock cycles have to pass along with scl being 0
                     Transmit_Counter <= Transmit_Counter - 1; 
                     //there is a -2 in the counter because r/w bit, makes it so that it transitions to ack state at the right time as well as to not access "negative" index
-                    if (!Address_Flag) begin
-                        if (Master_Address[Transmit_Counter - 2]) begin //read the address to write to and set sda to be the corresponding bit 
-                            Master_Data <= 1'bZ;
-                            Sda_Counter <= 0;
-                        end
 
-                        if (!Master_Address[Transmit_Counter - 2]) begin
-                            Master_Data <= 1'b0;
-                            Sda_Counter <= 0;
-                        end
+                    if (Master_Address[Transmit_Counter - 2]) begin //read the address to write to and set sda to be the corresponding bit 
+                        Master_Data <= 1'bZ;
+                        Sda_Counter <= 0;
                     end
 
-                    if (Address_Flag) begin
-                        Address_Flag <= 1'b0;
-                        Master_State <= Master_Write;
+                    if (!Master_Address[Transmit_Counter - 2]) begin
+                        Master_Data <= 1'b0;
+                        Sda_Counter <= 0;
                     end
                 end
 
