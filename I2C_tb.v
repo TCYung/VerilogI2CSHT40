@@ -15,7 +15,7 @@ module I2C_TB;
     
     clock_gen testclk1 (clk);
 
-    shtack testack (
+    sht_tb sht_tb1 (
         .clk (clk),
         .Master_State_Out(masterstateout),
         .Sda_Data(Sda_Data),
@@ -33,14 +33,12 @@ module I2C_TB;
         .Scl_Data(Scl_Data),
         .i2c_writes(writes),
         .SHT_Reads(shtreads),
-        .CRC_Error(CRC_Error),
         .Bytes_Received(bytesreceived),
         .Data_Received(datareceived),
         .Output_Received_Counter(outputreceivedcounter),
-        .Frames_Read(Frames_Read),
         .Master_State_Out(masterstateout),
-        //.r_or_w(rw),
-        .Scl_State_Out(sclstateout)
+        .Scl_State_Out(sclstateout),
+        .CRC_Error_Out(CRC_Error_Out)
         
         );
     i2c_sht40 peripheral1 (
@@ -51,7 +49,8 @@ module I2C_TB;
         .Temperature_Output(tempoutput), 
         .Humidity_Output(rhoutput),
         .Temp_Ready_Out(Temp_Ready_Out),
-        .RH_Ready_Out(RH_Ready_Out)
+        .RH_Ready_Out(RH_Ready_Out),
+        .CRC_Error_Out(CRC_Error_Out)
         );
     i2c_scl scl1 (
         .clk(clk),
@@ -64,7 +63,6 @@ module I2C_TB;
     initial begin
         Address = 7'b1000100; //0x44 in hex
         Data_Frames = 8'b11111101; //0xfd in hex
-        //rw = 1'b0;
         processor = 1'b1;
         writes = 1'b1;
     end
@@ -93,7 +91,7 @@ module clock_gen (output reg clk);
     end
 endmodule
 
-module shtack (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Scl_Data, input [2:0] Scl_State_Out, input [3:0] Output_Received_Counter);
+module sht_tb (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Scl_Data, input [2:0] Scl_State_Out, input [3:0] Output_Received_Counter);
     reg sdadatalocal;
     reg sdaflag; 
     reg scledgechecker;

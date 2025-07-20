@@ -6,7 +6,8 @@ module i2c_sht40
         output [3:0] SHT_Reads,
         output [15:0] Temperature_Output,
         output [15:0] Humidity_Output,
-        output Temp_Ready_Out, RH_Ready_Out
+        output Temp_Ready_Out, RH_Ready_Out,
+        output CRC_Error_Out
     );
 
     parameter SHT_Initial = 3'b000;
@@ -48,6 +49,8 @@ module i2c_sht40
     
     assign Temp_Ready_Out = Temp_Ready;
     assign RH_Ready_Out = RH_Ready;
+
+    assign CRC_Error_Out = CRC_Error;
     
     initial begin
         SHT_State = SHT_Initial;
@@ -57,6 +60,8 @@ module i2c_sht40
         CRC_Counter = 4'd0;
         SHT1_Flag = 0;
         SHT2_Flag = 0;
+        RH_Ready = 0;
+        Temp_Ready = 0;
     end
 
     always @(posedge clk) begin
@@ -65,9 +70,17 @@ module i2c_sht40
             SHT_Initial: begin
                 CRC_Error <= 0;
 
-                if (Output_Received_Counter == 1 || Output_Received_Counter == 4) begin 
-                    Temp_Ready <= 0;
+                //resetting rh ready is different from temperature ready because counter = 0 is the "start" state 
+                //there needs to be an flag reset after 6 -> 0 but 0 -> 1 doesnt happen the next cycle compared to 3 -> 4
+                if (Output_Received_Counter == 0) begin 
                     RH_Ready <= 0;
+                end
+                if (Output_Received_Counter == 1) begin 
+                    SHT_State <= SHT_1;
+                end
+
+                if (Output_Received_Counter == 4) begin 
+                    Temp_Ready <= 0;
                     SHT_State <= SHT_1;
                 end
             end
@@ -161,7 +174,3 @@ module i2c_sht40
         endcase
     end
 endmodule
-
-//also need to check if the register value will change during the execution of this code, it should provide enough time to grab the code because the master module should be ack'ing but double check
-
-// the first 2 CRC calculators should work after testing in vivado, havent checked if the last checking module works properly

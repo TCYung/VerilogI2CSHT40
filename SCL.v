@@ -13,7 +13,7 @@ module i2c_scl
 
     parameter Master_Processor = 3'b000;
     parameter Master_Start = 3'b001;
-    parameter Master_Transmit = 3'b010;
+    parameter Master_Transmit_Address = 3'b010;
     parameter Master_Receive = 3'b011;
     parameter Master_Write = 3'b100; 
     parameter Master_Ack = 3'b101;
@@ -32,10 +32,8 @@ module i2c_scl
     initial begin
         Scl_Counter = 5'd0;
         Scl_Transmit_Counter = 5'd0;
-        Scl_State = Scl_Start; //testing for end state uncomment later
-        Scl_Data_Local = 1'bZ; //testing for end state uncomment later
-        //Scl_Data_Local = 1'b0; //remove later
-        //Scl_State = Scl_Ack; //remove later
+        Scl_State = Scl_Start;
+        Scl_Data_Local = 1'bZ; 
     end 
 
     always @(posedge clk) begin
@@ -46,7 +44,6 @@ module i2c_scl
                     if (!Sda_Data) begin
                         Scl_Data_Local <= 1'b0;
                         if (Scl_Counter_Ready) begin
-                            //Scl_Data_Local <= 1'bZ; //leaving the line high would mean an accidental high signal
                             Scl_Counter <= 0;
                             Scl_State <= Scl_Transmit;
                         end
@@ -96,7 +93,9 @@ module i2c_scl
                     Scl_State <= Scl_Start;
                 end
                 //the below looks fine in the simulation but might have problems in some edge cases (breaks when first bit of the next transmission is 0)
+                //fixed above test case by adding an OR to check if master is in receive  
                 //look to change this to be dependent on a variable or on the state that the master module is in 
+
                 else if (Sda_Data || Master_State_Out == Master_Receive) begin //this code should not take priority over the stop state change
                     Scl_State <= Scl_Transmit;
                 end
