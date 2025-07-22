@@ -37,12 +37,11 @@ module i2c_sht40
     reg SHT1_Flag, SHT2_Flag; 
 
     assign Sht_Writes = 1'b1; //there is 1 write after the address
-    assign Sht_Reads = 3'd6; //there are 6 reads before master needs to nack and stop the transmission
     assign Sht_Checksum = 2'd3; //every third read is a checksum that needs to be verified 
 
     assign Poly = 6'b110001; //0x31 in binary used to xor the temp crc
 
-    assign SHT_Reads = 4'd6;
+    assign SHT_Reads = 4'd5;
     
     assign Temperature_Output = Temperature;
     assign Humidity_Output = Humidity;

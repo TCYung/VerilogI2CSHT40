@@ -263,7 +263,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     Receive_Counter <= 0; 
                     Total_Receive_Counter <= Total_Receive_Counter + 1;
                     
-                    if (SHT_Reads == Total_Receive_Counter + 1) begin //after 6 transfers go to the end state
+                    if (SHT_Reads == Total_Receive_Counter) begin //after 6 transfers go to the end state
                         Master_Data <= 1'b0;
                         Total_Receive_Counter <= 0;
 
