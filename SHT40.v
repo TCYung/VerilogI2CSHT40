@@ -70,13 +70,12 @@ module i2c_sht40
             SHT_Initial: begin
                 CRC_Error <= 0;
 
-                //resetting rh ready is different from temperature ready because counter = 0 is the "start" state 
-                //there needs to be an flag reset after 6 -> 0 but 0 -> 1 doesnt happen the next cycle compared to 3 -> 4
-                if (Output_Received_Counter == 0) begin 
-                    RH_Ready <= 0;
-                end
+                // if (Output_Received_Counter == 0) begin 
+                    
+                // end
                 if (Output_Received_Counter == 1) begin 
                     SHT_State <= SHT_1;
+                    RH_Ready <= 0;
                 end
 
                 if (Output_Received_Counter == 4) begin 
@@ -146,7 +145,7 @@ module i2c_sht40
                     end
                 end
 
-                if (Output_Received_Counter == 3 || Output_Received_Counter == 6) begin
+                if (Output_Received_Counter == 3 || Output_Received_Counter == 0) begin
                     SHT2_Counter <= 0;
                     CRC_Counter <= 0;
                     SHT2_Flag <= 0;
@@ -160,7 +159,7 @@ module i2c_sht40
                         Temp_Ready <= 1;
                         SHT_State <= SHT_Initial;
                     end
-                    if (Output_Received_Counter == 6) begin
+                    if (Output_Received_Counter == 0) begin
                         RH_Ready <= 1;
                         SHT_State <= SHT_Initial;
                     end            

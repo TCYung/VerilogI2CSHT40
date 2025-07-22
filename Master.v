@@ -94,6 +94,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 if (Processor_Ready) begin
                     Ack_Error <= 0;
                     Master_Writes <= i2c_writes; //grabs the number of writes until code will switch to reading from written peripheral
+
                     Master_State <= Master_Start;
                 end
             end
@@ -262,10 +263,17 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     Receive_Counter <= 0; 
                     Total_Receive_Counter <= Total_Receive_Counter + 1;
                     
-                    if (SHT_Reads == Total_Receive_Counter) begin //after 6 transfers go to the end state
+                    if (SHT_Reads == Total_Receive_Counter + 1) begin //after 6 transfers go to the end state
                         Master_Data <= 1'b0;
                         Total_Receive_Counter <= 0;
-                        Master_State <= Master_End; //repeat start state? some kind of interupt from the processor to choose?
+
+                        if (Processor_Ready && !Scl_Data) begin
+                            Master_Data <= 1'bZ;
+                            Master_State <= Master_Start;
+                        end
+                        else begin
+                            Master_State <= Master_End; //repeat start state? some kind of interupt from the processor to choose?
+                        end
                         
                     end
                 end

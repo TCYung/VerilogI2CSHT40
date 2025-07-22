@@ -113,6 +113,13 @@ module sht_tb (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
 
     always @(posedge clk) begin
         case (Output_Received_Counter) 
+            0: begin
+                tboutdata = 8'b10111110;
+                if (tbfinishflag == 0 && tboutdata !== 8'b10111110 || tbcounter > 8) begin
+                    tbcounter <= 8;
+                    tbfinishflag <= 1;
+                end
+            end
             1: begin
                 tboutdata <= 8'b11101111;
                 if (tbfinishflag == 0 && tboutdata !== 8'b11101111) begin
@@ -163,6 +170,7 @@ module sht_tb (input clk, inout Sda_Data, input [2:0] Master_State_Out, input Sc
                 Counter <= 4'd0;
             end               
         end
+
         if (Master_State_Out == 3'b011 && Scl_State_Out == 3'b001) begin
             scledgechecker <= Scl_Data;
             if (scledgechecker && !Scl_Data) begin
