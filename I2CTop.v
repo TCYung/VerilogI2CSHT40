@@ -3,7 +3,9 @@ module I2C_Top
         inout Sda_Data,
         inout Scl_Data,
         input clk,
-        //input processor,
+        //input processor //comment out when TB
+
+        //uncomment when TB
        output [3:0] outputreceivedcountertb,
        output [2:0] masterstateouttb,
        output [2:0] sclstateouttb
@@ -11,7 +13,7 @@ module I2C_Top
     reg [6:0] Address;
     reg [7:0] Data_Frames;
     reg rw;
-    reg processor;
+    reg processor; //uncomment when TB
     reg writes;
 
     wire [3:0] shtreads, bytesreceived, outputreceivedcounter;
@@ -40,7 +42,8 @@ module I2C_Top
         .clk (clk), 
         .Sda_Out(Sda_Out), 
         .Sda_In(Sda_In), 
-        .Processor_Ready(processor), 
+        .Processor_Ready(processor), //uncomment when tb
+        //.Processor_Ready(~processor), //comment when TB
         .Command_Data_Frames(Data_Frames),
         .Peripheral_Address(Address),
         .Scl_Out(Scl_Out),
@@ -51,7 +54,8 @@ module I2C_Top
         .Output_Received_Counter(outputreceivedcounter),
         .Master_State_Out(masterstateout),
         .Scl_State_Out(sclstateout),
-        .CRC_Error_Out(CRC_Error_Out)
+        .CRC_Error_Out(CRC_Error_Out),
+        .Scl_Flag_Out(Scl_Flag_Out)
         
         );
     i2c_sht40 peripheral1 (
@@ -70,13 +74,14 @@ module I2C_Top
         .Scl_Out(Scl_Out),
         .Sda_In(Sda_In),
         .Master_State_Out(masterstateout),
-        .Scl_State_Out(sclstateout)
+        .Scl_State_Out(sclstateout),
+        .Scl_Flag_Out(Scl_Flag_Out)
     );
 
     initial begin
         Address = 7'b1000100; //0x44 in hex
         Data_Frames = 8'b11111101; //0xfd in hex
-        processor = 1'b1;
+        processor = 1'b1; //uncomment when TB
         writes = 1'b1;
     end
     

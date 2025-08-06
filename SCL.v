@@ -3,7 +3,8 @@ module i2c_scl
     output Scl_Out,
     input Sda_In,
     input [2:0] Master_State_Out,
-    output [2:0] Scl_State_Out
+    output [2:0] Scl_State_Out,
+    output Scl_Flag_Out
     );
 
     parameter Scl_Start = 3'b000;
@@ -31,6 +32,7 @@ module i2c_scl
     assign Scl_Out = Scl_Out_Local;
     assign Scl_State_Out = Scl_State;
     assign Scl_Counter_Ready = (Scl_Counter == 480);
+    assign Scl_Flag_Out = Scl_Flag;
 
     initial begin
         Scl_Counter = 5'd0;
@@ -52,14 +54,16 @@ module i2c_scl
                             Scl_Flag <= 1;
                         end
                     end
-                    if (Scl_Flag == 1) begin
-                        Scl_Counter <= Scl_Counter + 1;
-                        if (Scl_Counter_Ready) begin
-                            Scl_Counter <= 0;
-                            Scl_State <= Scl_Transmit;
-                        end
+                end
+                if (Scl_Flag == 1) begin
+                    Scl_Counter <= Scl_Counter + 1;
+                    if (Scl_Counter_Ready) begin
+                        Scl_Counter <= 0;
+                        Scl_Flag <= 0;
+                        Scl_State <= Scl_Transmit;
                     end
                 end
+                
             end
             
             Scl_Transmit: begin //001

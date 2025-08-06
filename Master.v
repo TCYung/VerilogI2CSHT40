@@ -20,7 +20,10 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     output [7:0] Data_Received,
     output [3:0] Output_Received_Counter,
 
-    output [2:0] Master_State_Out
+    output [2:0] Master_State_Out,
+
+    input Scl_Flag_Out
+
     );
 
     parameter Master_Processor = 3'b000;
@@ -108,7 +111,8 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 Write_State_Flag <= 0;
                 if ((Sda_In || Sda_Counter_Ready) && Scl_State_Out == Scl_Start) begin 
                     Master_Data <= 0; //if SCL is high drop SDA so it creates a start instruction
-                    if (Sda_Counter_Ready) begin 
+                    if (Sda_Counter_Ready && Scl_Flag_Out) begin 
+                        Sda_Counter <= 0;
                         Master_State <= Master_Transmit_Address; 
                     end
                 end
@@ -124,29 +128,37 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             end
 
             Master_Transmit_Address: begin //010 
-                if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
-                    Sda_Counter <= Sda_Counter + 1;
-                end
-                
                 //8 bits that need to get transfered in this state 
                 //you would think < 7 but nonblocking assignment means that i need + 1
-                if (Sda_Counter_Ready && !Scl_Out && Transmit_Counter < 8) begin //only change sda value when scl is low to avoid an accidental start/stop
-                    Transmit_Counter <= Transmit_Counter + 1; 
-                    Sda_Counter <= 0;
+                if (!Scl_Out && Transmit_Counter < 8 && Scl_State_Out == Scl_Transmit) begin //only change sda value when scl is low to avoid an accidental start/stop
+                    if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
+                        Sda_Counter <= Sda_Counter + 1;
                     
-                    //6- means i can access all 7 data address bits
-                    if (Master_Address[6-Transmit_Counter]) begin //read the address to write to and set sda to be the corresponding bit 
-                        Master_Data <= 1;
-                    end
+                        //6- means i can access all 7 data address bits
+                        if (Master_Address[6-Transmit_Counter] && Sda_Counter > 240) begin //read the address to write to and set sda to be the corresponding bit 
+                            Transmit_Counter <= Transmit_Counter + 1; 
+                            Sda_Counter <= 0;
+                            Master_Data <= 1;
+                        end
 
-                    if (!Master_Address[6-Transmit_Counter]) begin
-                        Master_Data <= 0;
-                    end
+                        if (!Master_Address[6-Transmit_Counter] && Sda_Counter > 240) begin
+                            Transmit_Counter <= Transmit_Counter + 1; 
+                            Sda_Counter <= 0;
+                            Master_Data <= 0;
+                        end
 
-                    // below code should act the same but in simulation master data goes to an invalid X value for a couple clk cycles so i'm going to keep the code above
-                    // Master_Data <= Master_Address[Transmit_Counter - 2] ? 1'bZ : 1'b0;
-                    // Sda_Counter <= 0;
+                        if (Transmit_Counter == 7 && Sda_Counter > 240) begin
+                            Transmit_Counter <= Transmit_Counter + 1; 
+                            Sda_Counter <= 0;
+                        end
 
+                        // below code should act the same but in simulation master data goes to an invalid X value for a couple clk cycles so i'm going to keep the code above
+                        // Master_Data <= Master_Address[Transmit_Counter - 2] ? 1'bZ : 1'b0;
+                        // Sda_Counter <= 0;
+                    end        
+                end
+                if (Scl_Out && Transmit_Counter < 8) begin
+                    Sda_Counter <= 0;
                 end
 
                 if (Transmit_Counter == 8) begin //after the address is given check if its a read or write command
@@ -157,6 +169,10 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     
                     //sets 8th bit to corresponding r/w
                     if (Transmit_Counter_Flag) begin //write = 0, read = 1
+                        if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
+                            Sda_Counter <= Sda_Counter + 1;
+                        end
+
                         Master_Data <= r_or_w ? 1 : 0;
 
                         if (Sda_Counter_Ready && !Scl_Out) begin
@@ -173,8 +189,13 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 Scl_Edge_Checker <= Scl_Out;
 
                 if (!Scl_Out && !Write_Flag) begin 
-                    Master_Data <= 1; //release the sda line after the scl has gone from 1 to 0 so that the peripheral can ack
-                    Write_Flag <= 1; //only run this code once per visit to this state
+                    if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
+                        Sda_Counter <= Sda_Counter + 1;
+                    end
+                    if (Sda_Counter > 240) begin
+                        Master_Data <= 1; //release the sda line after the scl has gone from 1 to 0 so that the peripheral can ack
+                        Write_Flag <= 1; //only run this code once per visit to this state
+                    end
                 end
 
                 // once the line has been released the below code can start checking for an ack
