@@ -2,6 +2,8 @@ module i2c_scl
     (input clk,
     output Scl_Out,
     input Sda_In,
+    input [3:0] SHT_Reads,
+    input [3:0] Output_Received_Counter,
     input [2:0] Master_State_Out,
     output [2:0] Scl_State_Out,
     output Scl_Flag_Out
@@ -23,7 +25,6 @@ module i2c_scl
     reg [2:0] Scl_State;
     reg [8:0] Scl_Counter;
     reg Scl_Out_Local;
-    reg Sda_Edge_Checker;
     reg [4:0] Scl_Transmit_Counter;
     reg Scl_Flag; 
 
@@ -42,6 +43,10 @@ module i2c_scl
         Scl_Flag = 0;
     end 
 
+    //i added in the flag for the delayed start state but after the writes are finished the scl doesnt 
+    //behave as expected
+    //how can i keep the delayed start command but also have this work when i want to start reading 
+    
     always @(posedge clk) begin
         case (Scl_State)
             Scl_Start: begin //000
@@ -62,8 +67,7 @@ module i2c_scl
                         Scl_Flag <= 0;
                         Scl_State <= Scl_Transmit;
                     end
-                end
-                
+                end                
             end
             
             Scl_Transmit: begin //001
@@ -86,32 +90,31 @@ module i2c_scl
                 end
 
                 else begin
-                    Scl_Counter <= Scl_Counter + 1;
-                    if (Scl_Counter_Ready) begin
-                        Scl_Counter <= 0;
-                        Scl_Transmit_Counter <= 0; 
-                        Scl_State <= Scl_Ack;
-                    end
+                    Scl_Counter <= 0;
+                    Scl_Transmit_Counter <= 0; 
+                    Scl_State <= Scl_Ack;
                 end
             end
             
             //010
-            Scl_Ack: begin //this is the state after the ack pulse where the SCL line is held low until the SDA line goes back low
-                Sda_Edge_Checker <= Sda_In;
-                
+            Scl_Ack: begin //this is the state after the ack pulse where the SCL line is held low until the SDA line goes back low                
                 if (Master_State_Out == Master_End) begin //double check that master module can go to end on its own/has the right conditions to go to end state
                     Scl_State <= Scl_Stop;
                 end
                 
                 if (Master_State_Out == Master_Start) begin
-                    Scl_Out_Local <= 1;
-                    Scl_State <= Scl_Start;
+                    Scl_Counter <= Scl_Counter + 1;
+                    if (Scl_Counter_Ready) begin
+                        Scl_Out_Local <= 1;
+                        Scl_Counter <= 0;
+                        Scl_State <= Scl_Start;
+                    end
                 end
                 //the below looks fine in the simulation but might have problems in some edge cases (breaks when first bit of the next transmission is 0)
                 //fixed above test case by adding an OR to check if master is in receive  
                 //look to change this to be dependent on a variable or on the state that the master module is in 
 
-                else if (Sda_In || Master_State_Out == Master_Receive) begin //this code should not take priority over the stop state change
+                else if ((Master_State_Out == Master_Receive && SHT_Reads != Output_Received_Counter) || Master_State_Out == Master_Transmit_Address || Master_State_Out == Master_Write) begin //this code should not take priority over the stop state change
                     Scl_State <= Scl_Transmit;
                 end
             end

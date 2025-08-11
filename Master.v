@@ -98,7 +98,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 if (Processor_Ready) begin
                     Ack_Error <= 0;
                     Master_Writes <= i2c_writes; //grabs the number of writes until code will switch to reading from written peripheral
-
                     Master_State <= Master_Start;
                 end
             end
@@ -110,23 +109,21 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
 
                 Write_State_Flag <= 0;
                 if ((Sda_In || Sda_Counter_Ready) && Scl_State_Out == Scl_Start) begin 
-                    Master_Data <= 0; //if SCL is high drop SDA so it creates a start instruction
+                    if (Scl_Out && Sda_Counter_Ready) begin
+                        Master_Data <= 0; //if SCL is high drop SDA so it creates a start instruction
+                    end
+
                     if (Sda_Counter_Ready && Scl_Flag_Out) begin 
                         Sda_Counter <= 0;
                         Master_State <= Master_Transmit_Address; 
                     end
                 end
-                
-                //for the repeated start condition it resets the counter to keep it in the start state for the whole 20 clk cycles
-                //in simulation the start condition looks like it works, the scl pulse is really short but SCL should only go low once 
-                //sda is read to also be low
-                //then after the pulse the clk cycles are synced and provides the 20 clk cycles for it to register as low 
-
+                                
                 if (Scl_State_Out !== Scl_Start && Sda_Counter_Ready) begin
                     Sda_Counter <= 0;
                 end
             end
-
+            
             Master_Transmit_Address: begin //010 
                 //8 bits that need to get transfered in this state 
                 //you would think < 7 but nonblocking assignment means that i need + 1
@@ -151,12 +148,9 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                             Transmit_Counter <= Transmit_Counter + 1; 
                             Sda_Counter <= 0;
                         end
-
-                        // below code should act the same but in simulation master data goes to an invalid X value for a couple clk cycles so i'm going to keep the code above
-                        // Master_Data <= Master_Address[Transmit_Counter - 2] ? 1'bZ : 1'b0;
-                        // Sda_Counter <= 0;
                     end        
                 end
+
                 if (Scl_Out && Transmit_Counter < 8) begin
                     Sda_Counter <= 0;
                 end
@@ -186,8 +180,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             end
             
             Master_Ack: begin //101
-                Scl_Edge_Checker <= Scl_Out;
-
                 if (!Scl_Out && !Write_Flag) begin 
                     if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
                         Sda_Counter <= Sda_Counter + 1;
@@ -195,6 +187,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     if (Sda_Counter > 240) begin
                         Master_Data <= 1; //release the sda line after the scl has gone from 1 to 0 so that the peripheral can ack
                         Write_Flag <= 1; //only run this code once per visit to this state
+                        Sda_Counter <= 0;
                     end
                 end
 
@@ -213,51 +206,80 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     end
                     
                     //if there was a successful ack check if there are more writes 
-                    if (Ack_Pass && Scl_Falling_Edge) begin
-                        Write_Flag <= 0; 
-                        Ack_Pass <= 0;
-
+                    if (Ack_Pass && Scl_State_Out == Scl_Ack) begin
                         if (Master_Writes == 0) begin //if the master writes is 0 then all the write commands have finished 
-                            Master_State <= Write_State_Flag ? Master_Start : Master_Receive; 
+                            if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
+                                Sda_Counter <= Sda_Counter + 1;
+                            end
 
+                            if (Sda_Counter_Ready) begin
+                                Sda_Counter <= 0;
+                                Write_Flag <= 0; 
+                                Ack_Pass <= 0;
+                                Master_State <= Write_State_Flag ? Master_Start : Master_Receive; 
+                            end
                             //if the write state flag is high then data has finished being written to peripheral registers and we want to go to the start state to start the receive address transmission
                             //in the other case we've already been to the start state and can move directly to the receive state
                             //address write -> data write -> start -> address write -> receive data from peripheral
                         end
 
                         else begin
+                            Write_Flag <= 0; 
+                            Ack_Pass <= 0;
                             Master_State <= Master_Write; 
                         end
                     end
                 end
             end
 
-            Master_Write: begin //100
-                if (Sda_Counter < 480) //capping the counter in case it goes out of index and resets back to 0 
-                    Sda_Counter <= Sda_Counter + 1;
-                
-                if (Sda_Counter_Ready && !Scl_Out && Scl_State_Out == Scl_Transmit) begin //change the value once per clk cycle, scl state checker because scl goes to transmit later than master
-                    Sda_Counter <= 0;
-                    if (Transmit_Counter < 8) begin
-                        Transmit_Counter <= Transmit_Counter + 1; 
+            //problem that the first transmission is happening while scl is low
+            //the restriction that scl has to be in transmit state isnt working properly because SCL is supposed to stay in the ack state for longer
+            //this could potentially be solved by solving a different problem where SCL is low for 2 cycles in between address write and instruction write
+            //since the pcb design doesnt have the same issue 
 
-                        // 7- because all 8 bits are being used for data instead of the address write where 1 bit of the byte was used for r/w
-                        if (Master_Frames[7 - Transmit_Counter]) begin //read the command frame to write to and set sda to be the corresponding bit 
-                            Master_Data <= 1;
+            Master_Write: begin //100   
+
+                if (!Scl_Out && Transmit_Counter < 8 && Scl_State_Out == Scl_Transmit) begin //change the value once per clk cycle, scl state checker because scl goes to transmit later than master
+                    if (Sda_Counter < 480) begin//capping the counter in case it goes out of index and resets back to 0 
+                        Sda_Counter <= Sda_Counter + 1;
+                    end
+                        if (Transmit_Counter < 8) begin
+                            // 7- because all 8 bits are being used for data instead of the address write where 1 bit of the byte was used for r/w
+                            if (Master_Frames[7 - Transmit_Counter] && Sda_Counter > 240) begin //read the command frame to write to and set sda to be the corresponding bit 
+                                Transmit_Counter <= Transmit_Counter + 1; 
+                                Sda_Counter <= 0;
+                                Master_Data <= 1;
+                            end
+                            else if (!Master_Frames[7 - Transmit_Counter] && Sda_Counter > 240) begin 
+                                Transmit_Counter <= Transmit_Counter + 1; 
+                                Sda_Counter <= 0;
+                                Master_Data <= 0;
+                            end
                         end
-                        else if (!Master_Frames[7 - Transmit_Counter]) begin 
-                            Master_Data <= 0;
+
+                        if (Transmit_Counter == 7 && Sda_Counter > 240) begin
+                            Transmit_Counter <= Transmit_Counter + 1; 
+                            Sda_Counter <= 0;
                         end
                     end
-                    
-                    if (Transmit_Counter == 8) begin
+
+                if (Scl_Out && Transmit_Counter < 8) begin
+                    Sda_Counter <= 0;
+                end
+
+                if (Transmit_Counter == 8) begin
+
+                    if (Sda_Counter < 480) begin//capping the counter in case it goes out of index and resets back to 0 
+                        Sda_Counter <= Sda_Counter + 1;
+                    end
+
+                    if (Master_Writes == 1) begin //on the last write the code below lets us know that receive can start next time
+                        r_or_w <= 1;
+                        Write_State_Flag <= 1; //this flag tells ack state whether the next state should be receive or write 
+                    end
+
+                    if (Sda_Counter_Ready && !Scl_Out ) begin
                         Master_Writes <= Master_Writes - 1; //total number of writes from processor decreases per transmission 
-
-                        if (Master_Writes == 1) begin //on the last write the code below lets us know that receive can start next time
-                            r_or_w <= 1;
-                            Write_State_Flag <= 1; //this flag tells ack state whether the next state should be receive or write 
-                        end
-
                         Transmit_Counter <= 0;
                         Master_State <= Master_Ack;
                     end
@@ -265,8 +287,13 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
             end
             
             //011
-            Master_Receive: begin 
+            Master_Receive: begin                                 
+                if (Scl_Out) begin
+                    Sda_Counter <= 0;
+                end
+
                 Scl_Edge_Checker <= Scl_Out;
+
                 if (Receive_Counter < 8 && Scl_Rising_Edge) begin //if the SCL line is high the peripheral can transmit data
 		            Receive_Counter <= Receive_Counter + 1; //count the number of times data has been transferred
 		            Received_Data[7-Receive_Counter] <= Sda_In; //store the transmitted data with the index that lines up with the counter value
@@ -274,30 +301,40 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
 
                 //acking code for the peripheral to see that the data has been successfully received
                 if (Receive_Counter == 8 && !Scl_Out && !Scl_Falling_Edge) begin 
-                    Master_Data <= 0; 
-                    Receive_Counter <= Receive_Counter + 1; 
+                    if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
+                        Sda_Counter <= Sda_Counter + 1;
+                    end
 
+                    if (Sda_Counter > 240) begin
+                        Master_Data <= 0; 
+                        Receive_Counter <= Receive_Counter + 1; 
+                        Sda_Counter <= 0;
+                    end
                 end
 
-                if (Receive_Counter == 9 && Scl_Falling_Edge) begin //wait for the last scl pulse to fall before restarting the receive or going to the repeat start state
-                    Local_Bytes_Received <= Local_Bytes_Received + 1; 
-                    Master_Data <= 1;    
-                    Receive_Counter <= 0; 
-                    Total_Receive_Counter <= Total_Receive_Counter + 1;
-                    
-                    if (SHT_Reads == Total_Receive_Counter) begin //after 6 transfers go to the end state
-                        Master_Data <= 0;
-                        Total_Receive_Counter <= 0;
-
-                        if (Processor_Ready && !Scl_Out) begin
-                            Master_Data <= 1;
-                            Master_State <= Master_Start;
-                        end
-                        else begin
-                            Master_State <= Master_End; //repeat start state? some kind of interupt from the processor to choose?
-                        end
-                        
+                if (Receive_Counter == 9 && !Scl_Out) begin //wait for the last scl pulse to fall before restarting the receive or going to the repeat start state
+                    if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
+                        Sda_Counter <= Sda_Counter + 1;
                     end
+
+                    if (Sda_Counter > 240) begin
+                        Local_Bytes_Received <= Local_Bytes_Received + 1; 
+                        Master_Data <= 1;    
+                        Receive_Counter <= 0; 
+                        Total_Receive_Counter <= Total_Receive_Counter + 1;
+                        Sda_Counter <= 0;
+
+                        if (SHT_Reads == Total_Receive_Counter) begin //after 6 transfers go to the end state
+                            Total_Receive_Counter <= 0;
+                            
+                            if (Processor_Ready) begin
+                                Master_State <= Master_Start;
+                            end
+                            else begin
+                                Master_State <= Master_End; //repeat start state? some kind of interupt from the processor to choose?
+                            end                        
+                        end
+                    end                    
                 end
 
                 if (CRC_Error_Out) begin //not 100% sure you would be able to stop right away need to check if i need to wait for a timing

@@ -73,6 +73,8 @@ module I2C_Top
         .clk(clk),
         .Scl_Out(Scl_Out),
         .Sda_In(Sda_In),
+        .SHT_Reads(shtreads), 
+        .Output_Received_Counter(outputreceivedcounter), 
         .Master_State_Out(masterstateout),
         .Scl_State_Out(sclstateout),
         .Scl_Flag_Out(Scl_Flag_Out)
