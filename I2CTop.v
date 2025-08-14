@@ -3,17 +3,17 @@ module I2C_Top
         inout Sda_Data,
         inout Scl_Data,
         input clk,
-        //input processor //comment out when TB
+        input processor //comment out when TB
 
         //uncomment when TB
-       output [3:0] outputreceivedcountertb,
-       output [2:0] masterstateouttb,
-       output [2:0] sclstateouttb
+    //    output [3:0] outputreceivedcountertb,
+    //    output [2:0] masterstateouttb,
+    //    output [2:0] sclstateouttb
     );
     reg [6:0] Address;
     reg [7:0] Data_Frames;
     reg rw;
-    reg processor; //uncomment when TB
+    //reg processor; //uncomment when TB
     reg writes;
 
     wire [3:0] shtreads, bytesreceived, outputreceivedcounter;
@@ -42,8 +42,8 @@ module I2C_Top
         .clk (clk), 
         .Sda_Out(Sda_Out), 
         .Sda_In(Sda_In), 
-        .Processor_Ready(processor), //uncomment when tb
-        //.Processor_Ready(~processor), //comment when TB
+        //.Processor_Ready(processor), //uncomment when tb
+        .Processor_Ready(~processor), //comment when TB
         .Command_Data_Frames(Data_Frames),
         .Peripheral_Address(Address),
         .Scl_Out(Scl_Out),
@@ -82,8 +82,8 @@ module I2C_Top
 
     initial begin
         Address = 7'b1000100; //0x44 in hex
-        Data_Frames = 8'b11111101; //0xfd in hex
-        processor = 1'b1; //uncomment when TB
+        Data_Frames = 8'b11100000; //0xE0 in hex
+        //processor = 1'b1; //uncomment when TB
         writes = 1'b1;
     end
     

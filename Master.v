@@ -45,6 +45,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     wire Sda_Falling_Edge;
     wire Sda_Rising_Edge;
 
+    reg [18:0] Processor_Counter;
     reg [8:0] Sda_Counter;
     reg [2:0] Master_Writes;
     reg [3:0] Transmit_Counter;
@@ -75,6 +76,8 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
         r_or_w = 1'b0;
         Receive_Counter = 4'd0;
         Write_State_Flag = 1'b0;
+        Master_Writes = 1;
+        Processor_Counter = 0;
     end
 
     assign Master_Address = Peripheral_Address;
@@ -95,9 +98,11 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
         case(Master_State)
             //000
             Master_Processor: begin //the I2C peripheral specific module will give a ready signal and the state will change to start
-                if (Processor_Ready) begin
+                Processor_Counter <= Processor_Counter + 1;
+
+                if (Processor_Ready && Processor_Counter > 163200) begin
                     Ack_Error <= 0;
-                    Master_Writes <= i2c_writes; //grabs the number of writes until code will switch to reading from written peripheral
+                    Processor_Counter <= 0;
                     Master_State <= Master_Start;
                 end
             end
@@ -212,15 +217,20 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                                 Sda_Counter <= Sda_Counter + 1;
                             end
 
-                            if (Sda_Counter_Ready) begin
+                            if (!Write_State_Flag && Sda_Counter_Ready) begin
                                 Sda_Counter <= 0;
                                 Write_Flag <= 0; 
                                 Ack_Pass <= 0;
-                                Master_State <= Write_State_Flag ? Master_Start : Master_Receive; 
+                                Master_State <= Master_Receive; 
                             end
-                            //if the write state flag is high then data has finished being written to peripheral registers and we want to go to the start state to start the receive address transmission
-                            //in the other case we've already been to the start state and can move directly to the receive state
-                            //address write -> data write -> start -> address write -> receive data from peripheral
+                            
+                            if (Write_State_Flag && Sda_Counter > 240) begin
+                                Sda_Counter <= 0;
+                                Write_Flag <= 0; 
+                                Ack_Pass <= 0;
+                                Master_Data <= 0;
+                                Master_State <= Master_End;
+                            end
                         end
 
                         else begin
@@ -278,7 +288,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                         Write_State_Flag <= 1; //this flag tells ack state whether the next state should be receive or write 
                     end
 
-                    if (Sda_Counter_Ready && !Scl_Out ) begin
+                    if (Sda_Counter_Ready && !Scl_Out) begin
                         Master_Writes <= Master_Writes - 1; //total number of writes from processor decreases per transmission 
                         Transmit_Counter <= 0;
                         Master_State <= Master_Ack;
@@ -305,8 +315,13 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                         Sda_Counter <= Sda_Counter + 1;
                     end
 
-                    if (Sda_Counter > 240) begin
+                    if (Sda_Counter > 240 && SHT_Reads !== Total_Receive_Counter) begin
                         Master_Data <= 0; 
+                        Receive_Counter <= Receive_Counter + 1; 
+                        Sda_Counter <= 0;
+                    end
+
+                    if (Sda_Counter > 240 && SHT_Reads == Total_Receive_Counter) begin
                         Receive_Counter <= Receive_Counter + 1; 
                         Sda_Counter <= 0;
                     end
@@ -326,13 +341,9 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
 
                         if (SHT_Reads == Total_Receive_Counter) begin //after 6 transfers go to the end state
                             Total_Receive_Counter <= 0;
-                            
-                            if (Processor_Ready) begin
-                                Master_State <= Master_Start;
-                            end
-                            else begin
-                                Master_State <= Master_End; //repeat start state? some kind of interupt from the processor to choose?
-                            end                        
+                            r_or_w <= 0;
+                            Master_Writes <= i2c_writes; 
+                            Master_State <= Master_End;                         
                         end
                     end                    
                 end
@@ -345,15 +356,27 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 end
 
             end
-            //realized that the nxp i2c standard you can do another start message instead of giving a stop condition
-            //there needs to be a signal from the processor to stop the transmission and otherwise it should keep starting and transmitting
-
+            
             //110
             Master_End: begin
-                if (Scl_Out) begin
-                    Master_Data <= 1; //release high to indicate a stop condition
-                    r_or_w <= 0;
+                if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
+                        Sda_Counter <= Sda_Counter + 1;
+                end
+
+                if (Scl_State_Out == Scl_Stop) begin 
+                    if (Scl_Out && Sda_Counter_Ready) begin
+                        Sda_Counter <= 0;
+                        Master_Data <= 1; 
+                    end
+                end
+
+                if (Scl_State_Out == Scl_Start && Sda_Counter_Ready) begin
+                    Sda_Counter <= 0;
                     Master_State <= Master_Processor; 
+                end
+                                
+                if (Scl_State_Out == Scl_Transmit) begin
+                    Sda_Counter <= 0;
                 end
             end
         endcase

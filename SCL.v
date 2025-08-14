@@ -120,9 +120,17 @@ module i2c_scl
             end
             
             Scl_Stop: begin //011
-                Scl_Out_Local <= 1;
-                if (Sda_In) 
+                if (Master_State_Out == Master_End) begin
+                    Scl_Counter <= Scl_Counter + 1;
+                    if (Scl_Counter > 240) begin
+                        Scl_Counter <= 0;
+                        Scl_Out_Local <= 1;
+                    end
+                end
+
+                if (Sda_In && Scl_Out_Local) begin
                     Scl_State <= Scl_Start;
+                end
             end
 
         endcase
