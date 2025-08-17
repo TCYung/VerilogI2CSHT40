@@ -42,15 +42,11 @@ module i2c_scl
         Scl_Out_Local = 1; 
         Scl_Flag = 0;
     end 
-
-    //i added in the flag for the delayed start state but after the writes are finished the scl doesnt 
-    //behave as expected
-    //how can i keep the delayed start command but also have this work when i want to start reading 
     
     always @(posedge clk) begin
         case (Scl_State)
             Scl_Start: begin //000
-                if (Master_State_Out == Master_Start) begin
+                if (Master_State_Out == Master_Start) begin //flag for timing 
                     if (!Sda_In && !Scl_Flag) begin
                         Scl_Counter <= Scl_Counter + 1;
                         if (Scl_Counter_Ready) begin
@@ -98,7 +94,7 @@ module i2c_scl
             
             //010
             Scl_Ack: begin //this is the state after the ack pulse where the SCL line is held low until the SDA line goes back low                
-                if (Master_State_Out == Master_End) begin //double check that master module can go to end on its own/has the right conditions to go to end state
+                if (Master_State_Out == Master_End) begin 
                     Scl_State <= Scl_Stop;
                 end
                 
@@ -110,10 +106,7 @@ module i2c_scl
                         Scl_State <= Scl_Start;
                     end
                 end
-                //the below looks fine in the simulation but might have problems in some edge cases (breaks when first bit of the next transmission is 0)
-                //fixed above test case by adding an OR to check if master is in receive  
-                //look to change this to be dependent on a variable or on the state that the master module is in 
-
+                
                 else if ((Master_State_Out == Master_Receive && SHT_Reads != Output_Received_Counter) || Master_State_Out == Master_Transmit_Address || Master_State_Out == Master_Write) begin //this code should not take priority over the stop state change
                     Scl_State <= Scl_Transmit;
                 end

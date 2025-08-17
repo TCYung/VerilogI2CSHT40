@@ -6,11 +6,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     input [6:0] Peripheral_Address,
     input [7:0] Command_Data_Frames,
 
-    //this should be internal if we go to the end state it should reset back to write
-    //otherwise it should keep looping the repeated start condition 
-    //its possible that the peripheral can keep the written instruction and if you are accessing the same peripheral you dont need to rewrite
-    //but this is easier for now, can test later on 
-
     input Scl_Out,
     input i2c_writes, //from peripheral module (how many writes are needed)
     input [3:0] SHT_Reads,
@@ -40,7 +35,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     parameter Scl_Stop = 3'b011;
     
     wire [6:0] Master_Address;
-    wire [7:0] Master_Frames; //tied to command_data_frames
+    wire [7:0] Master_Frames; 
     wire Sda_Counter_Ready;
     wire Sda_Falling_Edge;
     wire Sda_Rising_Edge;
@@ -97,10 +92,11 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     always @(posedge clk) begin
         case(Master_State)
             //000
-            Master_Processor: begin //the I2C peripheral specific module will give a ready signal and the state will change to start
+            Master_Processor: begin //external ready signal (push button in block diagram) and the state will change to start
                 Processor_Counter <= Processor_Counter + 1;
 
-                if (Processor_Ready && Processor_Counter > 163200) begin
+                if (Processor_Ready && Processor_Counter > 163200) begin //comment if TB
+                //if (Processor_Ready && Processor_Counter > 480) begin //uncomment if TB
                     Ack_Error <= 0;
                     Processor_Counter <= 0;
                     Master_State <= Master_Start;
@@ -115,10 +111,10 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                 Write_State_Flag <= 0;
                 if ((Sda_In || Sda_Counter_Ready) && Scl_State_Out == Scl_Start) begin 
                     if (Scl_Out && Sda_Counter_Ready) begin
-                        Master_Data <= 0; //if SCL is high drop SDA so it creates a start instruction
+                        Master_Data <= 0; 
                     end
 
-                    if (Sda_Counter_Ready && Scl_Flag_Out) begin 
+                    if (Sda_Counter_Ready && Scl_Flag_Out) begin //timing so that there is enough time between the scl and sda drop so that the peripheral reads properly
                         Sda_Counter <= 0;
                         Master_State <= Master_Transmit_Address; 
                     end
@@ -217,7 +213,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                                 Sda_Counter <= Sda_Counter + 1;
                             end
 
-                            if (!Write_State_Flag && Sda_Counter_Ready) begin
+                            if (!Write_State_Flag) begin //write state flag tells the code if the sensor configuration command has been written yet
                                 Sda_Counter <= 0;
                                 Write_Flag <= 0; 
                                 Ack_Pass <= 0;
@@ -233,7 +229,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                             end
                         end
 
-                        else begin
+                        else begin //isnt used in the SHT40 but placed here in case a future peripheral needs more than 1 byte to write 
                             Write_Flag <= 0; 
                             Ack_Pass <= 0;
                             Master_State <= Master_Write; 
@@ -241,11 +237,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     end
                 end
             end
-
-            //problem that the first transmission is happening while scl is low
-            //the restriction that scl has to be in transmit state isnt working properly because SCL is supposed to stay in the ack state for longer
-            //this could potentially be solved by solving a different problem where SCL is low for 2 cycles in between address write and instruction write
-            //since the pcb design doesnt have the same issue 
 
             Master_Write: begin //100   
 
@@ -321,7 +312,7 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                         Sda_Counter <= 0;
                     end
 
-                    if (Sda_Counter > 240 && SHT_Reads == Total_Receive_Counter) begin
+                    if (Sda_Counter > 240 && SHT_Reads == Total_Receive_Counter) begin //if its the last transmission from the peripheral dont ack
                         Receive_Counter <= Receive_Counter + 1; 
                         Sda_Counter <= 0;
                     end
@@ -336,11 +327,12 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                         Local_Bytes_Received <= Local_Bytes_Received + 1; 
                         Master_Data <= 1;    
                         Receive_Counter <= 0; 
-                        Total_Receive_Counter <= Total_Receive_Counter + 1;
+                        Total_Receive_Counter <= Total_Receive_Counter + 1; //this line can probably be removed
                         Sda_Counter <= 0;
 
                         if (SHT_Reads == Total_Receive_Counter) begin //after 6 transfers go to the end state
                             Total_Receive_Counter <= 0;
+                            Master_Data <= 0; 
                             r_or_w <= 0;
                             Master_Writes <= i2c_writes; 
                             Master_State <= Master_End;                         
@@ -363,19 +355,19 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                         Sda_Counter <= Sda_Counter + 1;
                 end
 
-                if (Scl_State_Out == Scl_Stop) begin 
+                if (Scl_State_Out == Scl_Stop) begin //sda goes high for stop instruction
                     if (Scl_Out && Sda_Counter_Ready) begin
                         Sda_Counter <= 0;
                         Master_Data <= 1; 
                     end
                 end
 
-                if (Scl_State_Out == Scl_Start && Sda_Counter_Ready) begin
+                if (Scl_State_Out == Scl_Start && Sda_Counter_Ready) begin //wait for scl to be in the right state before continuing on
                     Sda_Counter <= 0;
                     Master_State <= Master_Processor; 
                 end
                                 
-                if (Scl_State_Out == Scl_Transmit) begin
+                if (Scl_State_Out == Scl_Transmit) begin //dont increment unless scl is in start or stop state
                     Sda_Counter <= 0;
                 end
             end

@@ -152,7 +152,7 @@ module i2c_sht40
                 end              
             end
 
-            SHT_3: begin //the master module uses the SHT_Reads so once it reaches 6 it will go to end state 
+            SHT_3: begin //the master module uses the SHT_Reads so once it reaches 5 it will go to end state 
                 if (Temp_CRC == Data_Received) begin
                     if (Output_Received_Counter == 3) begin
                         Temp_Ready <= 1;

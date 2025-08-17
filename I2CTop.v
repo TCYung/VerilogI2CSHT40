@@ -3,7 +3,11 @@ module I2C_Top
         inout Sda_Data,
         inout Scl_Data,
         input clk,
-        input processor //comment out when TB
+        input processor, //comment out when TB
+
+        output [15:0] m_axis_tdata,
+        output m_axis_tvalid,
+        input m_axis_tready    
 
         //uncomment when TB
     //    output [3:0] outputreceivedcountertb,
@@ -20,6 +24,7 @@ module I2C_Top
     wire [2:0] masterstateout;
     wire [7:0] datareceived;
     wire [15:0] tempoutput, rhoutput;
+    wire tempreadyout, rhreadyout;
     wire [2:0] sclstateout;
     
     assign outputreceivedcountertb = outputreceivedcounter;
@@ -37,6 +42,9 @@ module I2C_Top
 
     assign Sda_In = Sda_Data;
     assign Scl_In = Scl_Data;
+
+    assign m_axis_tvalid = (rhreadyout || tempreadyout) && m_axis_tready;
+    assign m_axis_tdata = rhreadyout ? rhoutput : (tempreadyout ? tempoutput : 0);
 
     i2c_master master1 (
         .clk (clk), 
@@ -65,8 +73,8 @@ module I2C_Top
         .SHT_Reads(shtreads), 
         .Temperature_Output(tempoutput), 
         .Humidity_Output(rhoutput),
-        .Temp_Ready_Out(Temp_Ready_Out),
-        .RH_Ready_Out(RH_Ready_Out),
+        .Temp_Ready_Out(tempreadyout),
+        .RH_Ready_Out(rhreadyout),
         .CRC_Error_Out(CRC_Error_Out)
         );
     i2c_scl scl1 (
@@ -86,13 +94,5 @@ module I2C_Top
         //processor = 1'b1; //uncomment when TB
         writes = 1'b1;
     end
-    
-    //we are going to use an always block to simulate the processor and maybe also the peripheral? pretty much just any external inputs to the program
-    //once the write process finishes i want to change it to the read state
-    //might have to change the processor ready to 0?
-
-    //use scl edge checker so that sda switches during the falling edge and holds it until the next falling edge 
-    //make sure to release the line after the 8th transmission so that the master can ack 
-    //start with making sure that one byte transmission works and that acks and waveforms look fine
 
 endmodule
