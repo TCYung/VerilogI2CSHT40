@@ -4,15 +4,21 @@ module I2C_Top
         inout Scl_Data,
         input clk,
         input processor, //comment out when TB
+        output an7, an6, an5, an4, an3, an2, an1, an0, ca, cb, cc, cd, ce, cf, cg, dp
+        //output [15:0] tempoutput,
+        //output [15:0] rhoutput,
+        //output tempreadyout,
+        //output rhreadyout
+        //not going to be using axi for the nexys7 board
 
-        output [15:0] m_axis_tdata,
-        output m_axis_tvalid,
-        input m_axis_tready    
+        // output [15:0] m_axis_tdata,
+        // output m_axis_tvalid,
+        // input m_axis_tready    
 
         //uncomment when TB
-    //    output [3:0] outputreceivedcountertb,
-    //    output [2:0] masterstateouttb,
-    //    output [2:0] sclstateouttb
+        // output [3:0] outputreceivedcountertb,
+        // output [2:0] masterstateouttb,
+        // output [2:0] sclstateouttb
     );
     reg [6:0] Address;
     reg [7:0] Data_Frames;
@@ -43,15 +49,16 @@ module I2C_Top
     assign Sda_In = Sda_Data;
     assign Scl_In = Scl_Data;
 
-    assign m_axis_tvalid = (rhreadyout || tempreadyout) && m_axis_tready;
-    assign m_axis_tdata = rhreadyout ? rhoutput : (tempreadyout ? tempoutput : 0);
+    //not going to be using axi for the nexys7 board
+    // assign m_axis_tvalid = (rhreadyout || tempreadyout) && m_axis_tready;
+    // assign m_axis_tdata = rhreadyout ? rhoutput : (tempreadyout ? tempoutput : 0);
 
     i2c_master master1 (
         .clk (clk), 
         .Sda_Out(Sda_Out), 
         .Sda_In(Sda_In), 
-        //.Processor_Ready(processor), //uncomment when tb
-        .Processor_Ready(~processor), //comment when TB
+        .Processor_Ready(processor), //uncomment when tb
+        //.Processor_Ready(~processor), //comment when TB
         .Command_Data_Frames(Data_Frames),
         .Peripheral_Address(Address),
         .Scl_Out(Scl_Out),
@@ -86,6 +93,30 @@ module I2C_Top
         .Master_State_Out(masterstateout),
         .Scl_State_Out(sclstateout),
         .Scl_Flag_Out(Scl_Flag_Out)
+    );
+
+    segdisplay segdisplay1 (
+        .clk(clk),
+        .i_temp(tempoutput),
+        .i_rh(rhoutput),
+        .i_r_temp(tempreadyout),
+        .i_r_rh(rhreadyout),
+        .an7(an7),
+        .an6(an6),
+        .an5(an5),
+        .an4(an4),
+        .an3(an3),
+        .an2(an2),
+        .an1(an1),
+        .an0(an0),
+        .ca(ca),
+        .cb(cb),
+        .cc(cc),
+        .cd(cd),
+        .ce(ce),
+        .cf(cf),
+        .cg(cg),
+        .dp(dp)
     );
 
     initial begin

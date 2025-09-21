@@ -53,7 +53,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
     reg [3:0] Total_Receive_Counter;
     reg Write_Flag;
     reg Ack_Error, Ack_Pass;
-    reg Transmit_Counter_Flag;
     reg r_or_w;
     reg Write_State_Flag;
     
@@ -66,7 +65,6 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
         Write_Flag = 1'b0;
         Ack_Error = 1'b0;
         Master_Data = 1'b1;
-        Transmit_Counter_Flag = 1'b0;
         Ack_Pass = 1'b0;
         r_or_w = 1'b0;
         Receive_Counter = 4'd0;
@@ -133,13 +131,13 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                         Sda_Counter <= Sda_Counter + 1;
                     
                         //6- means i can access all 7 data address bits
-                        if (Master_Address[6-Transmit_Counter] && Sda_Counter > 240) begin //read the address to write to and set sda to be the corresponding bit 
+                        if (Master_Address[6-Transmit_Counter] && Sda_Counter > 240 && Transmit_Counter !== 7) begin //read the address to write to and set sda to be the corresponding bit 
                             Transmit_Counter <= Transmit_Counter + 1; 
                             Sda_Counter <= 0;
                             Master_Data <= 1;
                         end
 
-                        if (!Master_Address[6-Transmit_Counter] && Sda_Counter > 240) begin
+                        if (!Master_Address[6-Transmit_Counter] && Sda_Counter > 240 && Transmit_Counter !== 7) begin
                             Transmit_Counter <= Transmit_Counter + 1; 
                             Sda_Counter <= 0;
                             Master_Data <= 0;
@@ -156,27 +154,18 @@ module i2c_master //note that SDA has to be high for the whole time that SCL is 
                     Sda_Counter <= 0;
                 end
 
-                if (Transmit_Counter == 8) begin //after the address is given check if its a read or write command
-                    if (!Transmit_Counter_Flag) begin
-                        Sda_Counter <= 0; //delays moving to ack state 
-                        Transmit_Counter_Flag <= 1;
+                if (Transmit_Counter == 8) begin //after the address is given check if its a read or write command (write = 0, read = 1)
+                    if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
+                        Sda_Counter <= Sda_Counter + 1;
                     end
-                    
-                    //sets 8th bit to corresponding r/w
-                    if (Transmit_Counter_Flag) begin //write = 0, read = 1
-                        if (Sda_Counter < 480) begin //capping the counter in case it goes out of index and resets back to 0 
-                            Sda_Counter <= Sda_Counter + 1;
-                        end
 
-                        Master_Data <= r_or_w ? 1 : 0;
+                    Master_Data <= r_or_w ? 1 : 0;
 
-                        if (Sda_Counter_Ready && !Scl_Out) begin
-                            Transmit_Counter <= 0; 
-                            Sda_Counter <= 0;
-                            Transmit_Counter_Flag <= 0;
-                            Master_State <= Master_Ack; 
-                        end 
-                    end	
+                    if (Sda_Counter_Ready && !Scl_Out) begin
+                        Transmit_Counter <= 0; 
+                        Sda_Counter <= 0;
+                        Master_State <= Master_Ack; 
+                    end 	
                 end
             end
             
