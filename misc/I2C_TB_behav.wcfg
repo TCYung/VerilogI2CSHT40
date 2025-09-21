@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="I2C_TB_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="I2C_TB" />
+            <top_module name="glbl" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="76.502000 us"></ZoomStartTime>
+      <ZoomEndTime time="217.402001 us"></ZoomEndTime>
+      <Cursor1Time time="139.402000 us"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="204"></NameColumnWidth>
+      <ValueColumnWidth column_width="58"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="21" />
+   <wvobject fp_name="/I2C_TB/I2C_Top/clk" type="logic">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/Sda_Data" type="logic">
+      <obj_property name="ElementShortName">Sda_Data</obj_property>
+      <obj_property name="ObjectShortName">Sda_Data</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/Scl_Data" type="logic">
+      <obj_property name="ElementShortName">Scl_Data</obj_property>
+      <obj_property name="ObjectShortName">Scl_Data</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/Sda_Out" type="logic">
+      <obj_property name="ElementShortName">Sda_Out</obj_property>
+      <obj_property name="ObjectShortName">Sda_Out</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/master1/Sda_Counter" type="array">
+      <obj_property name="ElementShortName">Sda_Counter[8:0]</obj_property>
+      <obj_property name="ObjectShortName">Sda_Counter[8:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/scl1/Scl_Counter" type="array">
+      <obj_property name="ElementShortName">Scl_Counter[8:0]</obj_property>
+      <obj_property name="ObjectShortName">Scl_Counter[8:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/scl1/Scl_Out_Local" type="logic">
+      <obj_property name="ElementShortName">Scl_Out_Local</obj_property>
+      <obj_property name="ObjectShortName">Scl_Out_Local</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/masterstateout" type="array">
+      <obj_property name="ElementShortName">masterstateout[2:0]</obj_property>
+      <obj_property name="ObjectShortName">masterstateout[2:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/sclstateout" type="array">
+      <obj_property name="ElementShortName">sclstateout[2:0]</obj_property>
+      <obj_property name="ObjectShortName">sclstateout[2:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/master1/Transmit_Counter_Flag" type="logic">
+      <obj_property name="ElementShortName">Transmit_Counter_Flag</obj_property>
+      <obj_property name="ObjectShortName">Transmit_Counter_Flag</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/master1/Transmit_Counter" type="array">
+      <obj_property name="ElementShortName">Transmit_Counter[3:0]</obj_property>
+      <obj_property name="ObjectShortName">Transmit_Counter[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/datareceived" type="array">
+      <obj_property name="ElementShortName">datareceived[7:0]</obj_property>
+      <obj_property name="ObjectShortName">datareceived[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/tempoutput" type="array">
+      <obj_property name="ElementShortName">tempoutput[15:0]</obj_property>
+      <obj_property name="ObjectShortName">tempoutput[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/rhoutput" type="array">
+      <obj_property name="ElementShortName">rhoutput[15:0]</obj_property>
+      <obj_property name="ObjectShortName">rhoutput[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/CRC_Error_Out" type="logic">
+      <obj_property name="ElementShortName">CRC_Error_Out</obj_property>
+      <obj_property name="ObjectShortName">CRC_Error_Out</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/master1/Receive_Counter" type="array">
+      <obj_property name="ElementShortName">Receive_Counter[3:0]</obj_property>
+      <obj_property name="ObjectShortName">Receive_Counter[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/master1/Total_Receive_Counter" type="array">
+      <obj_property name="ElementShortName">Total_Receive_Counter[3:0]</obj_property>
+      <obj_property name="ObjectShortName">Total_Receive_Counter[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/m_axis_tvalid" type="logic">
+      <obj_property name="ElementShortName">m_axis_tvalid</obj_property>
+      <obj_property name="ObjectShortName">m_axis_tvalid</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/m_axis_tdata" type="array">
+      <obj_property name="ElementShortName">m_axis_tdata[15:0]</obj_property>
+      <obj_property name="ObjectShortName">m_axis_tdata[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/tempreadyout" type="logic">
+      <obj_property name="ElementShortName">tempreadyout</obj_property>
+      <obj_property name="ObjectShortName">tempreadyout</obj_property>
+   </wvobject>
+   <wvobject fp_name="/I2C_TB/I2C_Top/rhreadyout" type="logic">
+      <obj_property name="ElementShortName">rhreadyout</obj_property>
+      <obj_property name="ObjectShortName">rhreadyout</obj_property>
+   </wvobject>
+</wave_config>
