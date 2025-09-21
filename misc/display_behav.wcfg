@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="display_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="display" />
+            <top_module name="glbl" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="200,306.917 ns"></ZoomStartTime>
+      <ZoomEndTime time="201,015.418 ns"></ZoomEndTime>
+      <Cursor1Time time="200,428.917 ns"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="196"></NameColumnWidth>
+      <ValueColumnWidth column_width="58"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="15" />
+   <wvobject fp_name="/display/clk" type="logic">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/i_temp" type="array">
+      <obj_property name="ElementShortName">i_temp[15:0]</obj_property>
+      <obj_property name="ObjectShortName">i_temp[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/i_r_temp" type="logic">
+      <obj_property name="ElementShortName">i_r_temp</obj_property>
+      <obj_property name="ObjectShortName">i_r_temp</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/temp_int" type="array">
+      <obj_property name="ElementShortName">temp_int[6:0]</obj_property>
+      <obj_property name="ObjectShortName">temp_int[6:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/temp_lut" type="array">
+      <obj_property name="ElementShortName">temp_lut[0:1389][3:0]</obj_property>
+      <obj_property name="ObjectShortName">temp_lut[0:1389][3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/double_dabble_temp" type="array">
+      <obj_property name="ElementShortName">double_dabble_temp[14:0]</obj_property>
+      <obj_property name="ObjectShortName">double_dabble_temp[14:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/temp_bcd_shifts" type="array">
+      <obj_property name="ElementShortName">temp_bcd_shifts[3:0]</obj_property>
+      <obj_property name="ObjectShortName">temp_bcd_shifts[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/temp_temp" type="array">
+      <obj_property name="ElementShortName">temp_temp[31:0]</obj_property>
+      <obj_property name="ObjectShortName">temp_temp[31:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/temp_deci" type="array">
+      <obj_property name="ElementShortName">temp_deci[3:0]</obj_property>
+      <obj_property name="ObjectShortName">temp_deci[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/i_rh" type="array">
+      <obj_property name="ElementShortName">i_rh[15:0]</obj_property>
+      <obj_property name="ObjectShortName">i_rh[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/i_r_rh" type="logic">
+      <obj_property name="ElementShortName">i_r_rh</obj_property>
+      <obj_property name="ObjectShortName">i_r_rh</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/rh_int" type="array">
+      <obj_property name="ElementShortName">rh_int[6:0]</obj_property>
+      <obj_property name="ObjectShortName">rh_int[6:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/rh_deci" type="array">
+      <obj_property name="ElementShortName">rh_deci[3:0]</obj_property>
+      <obj_property name="ObjectShortName">rh_deci[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/double_dabble_rh" type="array">
+      <obj_property name="ElementShortName">double_dabble_rh[14:0]</obj_property>
+      <obj_property name="ObjectShortName">double_dabble_rh[14:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/display/rh_bcd_shifts" type="array">
+      <obj_property name="ElementShortName">rh_bcd_shifts[3:0]</obj_property>
+      <obj_property name="ObjectShortName">rh_bcd_shifts[3:0]</obj_property>
+   </wvobject>
+</wave_config>
