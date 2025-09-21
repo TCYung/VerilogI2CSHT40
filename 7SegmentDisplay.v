@@ -69,8 +69,6 @@ module segdisplay
     reg [3:0] rh_ones;
 
     reg [20:0] counter = 0;
-    reg temp_flag = 0;
-    reg humid_flag = 0;
 
     reg dd_temp_flag = 0;
     reg dd_rh_flag = 0;
@@ -80,7 +78,8 @@ module segdisplay
 
     reg digit_out_flag = 0;
 
-    assign temp_rh = (i_rh * 1250) >> 16; //get value for LUT
+    //calculations according to the SHT40 datasheet
+    assign temp_rh = (i_rh * 1250) >> 16; //get value for decimal LUT
     assign rh_deci = temp_lut[temp_rh]; //use the LUT to store the decimal digit
     assign rh_int = ((i_rh * 125) >> 16) - 6; //integer rh value
 
@@ -88,8 +87,9 @@ module segdisplay
     assign temp_deci = temp_lut[temp_temp]; 
     assign temp_int = ((i_temp * 315) >> 16) - 49; // integer temperature value in F
 
+    //double dabble algorithm for temperature to convert binary integer to BCD
     always @(posedge clk) begin
-        if (i_r_temp && ~i_r_temp_flag) begin
+        if (i_r_temp && ~i_r_temp_flag) begin //code only runs once per temp/rh ready cycle
             if (dd_temp_flag == 0) begin
                 double_dabble_temp [6:0] <= temp_int;
                 double_dabble_temp [14:7] <= 0;
@@ -100,12 +100,12 @@ module segdisplay
                 temp_bcd_shifts <= temp_bcd_shifts + 1;
                 double_dabble_temp <= {double_dabble_temp[13:0], 1'b0};
 
-                if (double_dabble_temp[9:6] > 4 && temp_bcd_shifts !== 6) begin
+                if (double_dabble_temp[9:6] > 4 && temp_bcd_shifts !== 6) begin //note that on the last operation there is no addition after the shift 
                     double_dabble_temp[10:7] <= double_dabble_temp[9:6] + 3;
                 end               
             end
 
-            if (temp_bcd_shifts == 7) begin
+            if (temp_bcd_shifts == 7) begin 
                 temp_bcd_shifts <= 0;
                 dd_temp_flag <= 0;
                 temp_tens <= double_dabble_temp [14:11];
@@ -120,24 +120,25 @@ module segdisplay
 
     end
 
+    //double dabble algorithm for RH to convert binary integer to BCD
     always @(posedge clk) begin
-        if (i_r_rh && ~i_r_rh_flag) begin
+        if (i_r_rh && ~i_r_rh_flag) begin //code only runs once per temp/rh ready cycle
             if (dd_rh_flag == 0) begin
                 double_dabble_rh [6:0] <= rh_int;
                 double_dabble_rh [14:7] <= 0;
                 dd_rh_flag <= 1;
             end
 
-            if (rh_bcd_shifts < 7 && dd_rh_flag == 1) begin
+            if (rh_bcd_shifts < 7 && dd_rh_flag == 1) begin 
                 rh_bcd_shifts <= rh_bcd_shifts + 1;
                 double_dabble_rh <= {double_dabble_rh[13:0], 1'b0};
 
-                if (double_dabble_rh[9:6] > 4 && rh_bcd_shifts !== 6) begin
+                if (double_dabble_rh[9:6] > 4 && rh_bcd_shifts !== 6) begin //note that on the last operation there is no addition after the shift 
                     double_dabble_rh[10:7] <= double_dabble_rh[9:6] + 3;
                 end               
             end
 
-            if (rh_bcd_shifts == 7) begin
+            if (rh_bcd_shifts == 7) begin 
                 rh_bcd_shifts <= 0;
                 dd_rh_flag <= 0;
                 rh_tens <= double_dabble_rh [14:11];
@@ -152,6 +153,9 @@ module segdisplay
 
     end
 
+    //the counter value was picked so that the decimal place value can sort of be seen but not too slow that the display flickers
+    //assigns from leftmost display to rightmost and loops
+    
     always @(posedge clk) begin
         case (out_digit) //some kind of counter so that it doesnt immediately move to the next state
             1: begin
